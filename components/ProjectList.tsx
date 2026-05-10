@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Home, File as FileIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
+import { API_URL } from "@/services/api";
 
 type ProjectItem = {
   folio: number;
@@ -55,7 +56,7 @@ export default function ProjectList() {
         setLoading(true);
 
         const res = await fetch(
-          `https://api-anemona-637376850775.northamerica-northeast1.run.app/usuarios/${idusuario}/proyectos`
+          `${API_URL}/usuarios/${idusuario}/proyectos`
         );
 
         if (!res.ok) {

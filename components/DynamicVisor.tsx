@@ -7,6 +7,7 @@ import {
   renderW003,
   Widget,
 } from "./widgets/BibliotecaWidgets";
+import { API_URL } from "@/services/api";
 
 type Props = {
   widgets: Widget[];
@@ -61,7 +62,7 @@ const WidgetRenderer: React.FC<Props> = ({ widgets: initialWidgets, changedField
     setLoading(true);
     try {
       const res = await fetch(
-        `https://api-anemona-637376850775.northamerica-northeast1.run.app/widgets/modificar?doc_id=${encodeURIComponent(docId)}`,
+        `${API_URL}/widgets/modificar?doc_id=${encodeURIComponent(docId)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

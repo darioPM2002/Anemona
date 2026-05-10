@@ -1,5 +1,6 @@
 "use client";
 
+import { API_URL } from "@/services/api";
 import { X, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -73,7 +74,7 @@ export default function FormModal({
       try {
         setLoadingDepartamentos(true);
 
-        const res = await fetch("https://api-anemona-637376850775.northamerica-northeast1.run.app/departamentos");
+        const res = await fetch(`${API_URL}/departamentos`);
 
         if (!res.ok) {
           throw new Error("No se pudieron cargar los departamentos");
@@ -475,7 +476,7 @@ export default function FormModal({
       console.log("📦 PAYLOAD QUE SE ENVÍA:");
       console.log(JSON.stringify(payload, null, 2));
 
-      const res = await fetch("https://api-anemona-637376850775.northamerica-northeast1.run.app/firestore/new_project", {
+      const res = await fetch(`${API_URL}/firestore/new_project`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

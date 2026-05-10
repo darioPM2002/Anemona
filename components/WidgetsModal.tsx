@@ -10,6 +10,7 @@ import {
   renderW003,
   Widget,
 } from "./widgets/BibliotecaWidgets";
+import { API_URL } from "@/services/api";
 
 type WidgetsModalProps = {
   isOpen: boolean;
@@ -127,7 +128,7 @@ export default function WidgetsModal({ isOpen, onClose, widgets, onWidgetsChange
       console.log(JSON.stringify(payload, null, 2)); // <- usa payload
 
       const res = await fetch(
-        `https://api-anemona-637376850775.northamerica-northeast1.run.app/widgets/modificar/${encodeURIComponent(docId)}`,
+        `${API_URL}/widgets/modificar/${encodeURIComponent(docId)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

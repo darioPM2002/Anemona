@@ -21,8 +21,9 @@ import WidgetRenderer from "./DynamicVisor";
 import WidgetsModal from "./WidgetsModal";
 import { Widget } from "./widgets/BibliotecaWidgets";
 import ArquitecturaDiagram from "./ArquitecturaDiagram";
+import { API_URL } from "@/services/api";
 
-const API_BASE = "https://api-anemona-637376850775.northamerica-northeast1.run.app";
+const API_BASE = `${API_URL}`;
 
 const DOC_NAMES: Record<"ERS" | "Análisis" | "Arquitectura", string> = {
   ERS: "Documento ERS",
@@ -103,22 +104,21 @@ export default function Documentacion({ expanded, onToggle }: { expanded: boolea
     if (typeof window === "undefined") return "";
     return localStorage.getItem("token") || "";
   };
-
-  const mapDataToWidgets = (data: any): Widget[] => {
-    const posiciones: string[] = data.posiciones ?? [];
-    return posiciones.map((widgetId, index) => {
-      const w = data[widgetId] ?? {};
-      return {
-        posicion: index,
-        id_widget: widgetId,
-        titulo: w.titulo ?? widgetId,
-        objetivo_widget: w.objetivo_widget ?? "",
-        descripcion_campos: w.descripcion_campos ?? {},
-        campos: w.campos ?? {},
-      };
-    });
-  };
-
+const mapDataToWidgets = (data: any): Widget[] => {
+  console.log("🔴 mapDataToWidgets →", data);
+  
+  return Object.entries(data)
+    .filter(([key]) => !isNaN(Number(key)))  // solo llaves numéricas (posiciones)
+    .sort(([a], [b]) => Number(a) - Number(b))  // ordenar por posición
+    .map(([key, w]: [string, any]) => ({
+      posicion: Number(key),
+      id_widget: w.id_widget ?? key,
+      titulo: w.titulo ?? key,
+      objetivo_widget: w.objetivo_widget ?? "",
+      descripcion_campos: w.descripcion_campos ?? {},
+      campos: w.campos ?? {},
+    }));
+};
   useEffect(() => {
     let isMounted = true;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -157,7 +157,7 @@ export default function Documentacion({ expanded, onToggle }: { expanded: boolea
         if (!docId) return;
 
         const response = await fetch(
-          `https://api-anemona-637376850775.northamerica-northeast1.run.app/firestore/bajar?doc_id=${encodeURIComponent(docId)}`,
+          `${API_URL}/firestore/bajar?doc_id=${encodeURIComponent(docId)}`,
           { method: "GET", headers: { accept: "application/json" }, cache: "no-store" }
         );
 

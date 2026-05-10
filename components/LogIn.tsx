@@ -1,6 +1,6 @@
+import { API_URL } from "@/services/api";
 import { useState } from "react";
 
-const API_URL: string = "https://api-anemona-637376850775.northamerica-northeast1.run.app";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");

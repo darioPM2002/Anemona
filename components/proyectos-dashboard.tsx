@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Home, File as FileIcon, Filter, Calendar, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { API_URL } from "@/services/api";
 
 interface Proyecto {
   folio: number;
@@ -67,7 +68,7 @@ export default function ProyectosDashboard() {
       setAiMessage("");
 
       const res = await fetch(
-        `https://api-anemona-637376850775.northamerica-northeast1.run.app/usuarios/${idusuario}/proyectos/buscar-con-agente`,
+        `${API_URL}/usuarios/${idusuario}/proyectos/buscar-con-agente`,
         {
           method: "POST",
           headers: {
@@ -137,7 +138,7 @@ export default function ProyectosDashboard() {
     try {
       setEliminando(true);
 
-      const res = await fetch(`https://api-anemona-637376850775.northamerica-northeast1.run.app/proyectos/${folioAEliminar}`, {
+      const res = await fetch(`${API_URL}/proyectos/${folioAEliminar}`, {
         method: "DELETE",
       });
 
@@ -177,7 +178,7 @@ export default function ProyectosDashboard() {
     const fetchProyectos = async () => {
       try {
         const res = await fetch(
-          `https://api-anemona-637376850775.northamerica-northeast1.run.app/usuarios/${idusuario}/proyectos`
+          `${API_URL}/usuarios/${idusuario}/proyectos`
         );
 
         const data = await res.json();

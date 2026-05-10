@@ -3,6 +3,7 @@
 import { SendHorizonal, Bot, User, LayoutDashboard, Zap, CheckCircle2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import FormModal from "./FormModal";
+import { API_URL } from "@/services/api";
 
 type MsgRole = "user" | "bot" | "tool_call" | "tool_result";
 
@@ -178,7 +179,7 @@ export default function ChatBot() {
     if (!cleanUserId) return;
     try {
       setLoadingSession(true);
-      const res = await fetch("https://api-anemona-637376850775.northamerica-northeast1.run.app/agent/sessions", {
+      const res = await fetch(`${API_URL}/agent/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: cleanUserId }),
@@ -216,7 +217,7 @@ export default function ChatBot() {
     setIsThinking(true); // ← muestra burbuja de "pensando"
 
     try {
-      const res = await fetch("https://api-anemona-637376850775.northamerica-northeast1.run.app/agent/query/stream", {
+      const res = await fetch(`${API_URL}/agent/query/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: userId, session_id: sessionId, message: text }),

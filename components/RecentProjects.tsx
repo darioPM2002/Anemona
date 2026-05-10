@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Home, File as FileIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { API_URL } from "@/services/api";
 
 type RecentProjectItem = {
   folio: number;
@@ -53,7 +54,7 @@ export default function RecentProjectList() {
         setLoading(true);
 
         const res = await fetch(
-          `https://api-anemona-637376850775.northamerica-northeast1.run.app/usuarios/${idusuario}/proyectos_recientes`
+         `${API_URL}/usuarios/${idusuario}/proyectos_recientes`
         );
 
         if (!res.ok) {

@@ -12,34 +12,57 @@ export default function PdfDocumentPage() {
   const [loading, setLoading] = useState(true);
 
   const mapDataToWidgets = (data: any): Widget[] => {
-  const posiciones = data.posiciones ?? [];
+    const widgets: Widget[] = [];
+    const posiciones = data.posiciones ?? [];
 
-  return posiciones.map((item: any, index: number) => {
-    // Caso 1: posiciones trae strings: ["w_000", "w_001"]
-    if (typeof item === "string") {
-      const w = data[item] ?? {};
+    if (Array.isArray(posiciones) && posiciones.length > 0) {
+      posiciones.forEach((item: any, index: number) => {
+        if (typeof item === "string") {
+          const w = data[item] ?? {};
 
-      return {
-        posicion: index,
-        id_widget: item,
-        titulo: w.titulo ?? item,
-        objetivo_widget: w.objetivo_widget ?? "",
-        descripcion_campos: w.descripcion_campos ?? {},
-        campos: w.campos ?? {},
-      };
+          widgets.push({
+            posicion: index,
+            id_widget: w.id_widget ?? item,
+            titulo: w.titulo ?? item,
+            objetivo_widget: w.objetivo_widget ?? "",
+            descripcion_campos: w.descripcion_campos ?? {},
+            campos: w.campos ?? {},
+          });
+        } else {
+          widgets.push({
+            posicion: item.posicion ?? index,
+            id_widget: item.id_widget ?? item.id ?? "",
+            titulo: item.titulo ?? item.id_widget ?? "",
+            objetivo_widget: item.objetivo_widget ?? "",
+            descripcion_campos: item.descripcion_campos ?? {},
+            campos: item.campos ?? {},
+          });
+        }
+      });
     }
 
-    // Caso 2: posiciones trae objetos completos
-    return {
-      posicion: item.posicion ?? index,
-      id_widget: item.id_widget ?? item.id ?? "",
-      titulo: item.titulo ?? item.id_widget ?? "",
-      objetivo_widget: item.objetivo_widget ?? "",
-      descripcion_campos: item.descripcion_campos ?? {},
-      campos: item.campos ?? {},
-    };
-  });
-};
+    Object.keys(data).forEach((key) => {
+      const item = data[key];
+
+      if (
+        item &&
+        typeof item === "object" &&
+        item.id_widget &&
+        !widgets.some((w) => w.id_widget === item.id_widget)
+      ) {
+        widgets.push({
+          posicion: Number.isNaN(Number(key)) ? widgets.length : Number(key),
+          id_widget: item.id_widget,
+          titulo: item.titulo ?? item.id_widget,
+          objetivo_widget: item.objetivo_widget ?? "",
+          descripcion_campos: item.descripcion_campos ?? {},
+          campos: item.campos ?? {},
+        });
+      }
+    });
+
+    return widgets.sort((a, b) => a.posicion - b.posicion);
+  };
 
   useEffect(() => {
     const fetchDocumento = async () => {
@@ -63,7 +86,9 @@ export default function PdfDocumentPage() {
         const json = await response.json();
 
         if (json.ok && json.data) {
-          setWidgets(mapDataToWidgets(json.data));
+          const mappedWidgets = mapDataToWidgets(json.data);
+          console.log("Widgets PDF:", mappedWidgets);
+          setWidgets(mappedWidgets);
         }
       } catch (error) {
         console.error("Error cargando documento para PDF:", error);

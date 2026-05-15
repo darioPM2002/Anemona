@@ -1,0 +1,558 @@
+"use client";
+
+// ─── Relaciones con otros archivos ───────────────────────────────────────────
+// - Usa DynamicVisor.tsx (WidgetRenderer) para mostrar el documento
+// - Usa WidgetsModal.tsx para el modal de widgets arrastrables
+// - Lee sessionStorage["project_id"] para saber qué doc cargar de Firestore
+// - Detecta cambios del chat y los pasa como changedFields a WidgetRenderer
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useEffect, useRef, useState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  CheckCircle,
+  X,
+  Mail,
+  Loader2,
+} from "lucide-react";
+import WidgetRenderer from "../../components/DynamicVisor";
+import WidgetsModal from "../../components/WidgetsModal";
+import { Widget } from "../../components/widgets/BibliotecaWidgets";
+import ArquitecturaDiagram from "../../components/ArquitecturaDiagram";
+
+//const API_BASE =
+//  "https://api-anemona-637376850775.northamerica-northeast1.run.app";
+
+const API_BASE = "http://localhost:8000";
+
+const DOC_NAMES: Record<"ERS" | "Análisis" | "Arquitectura", string> = {
+  ERS: "Documento ERS",
+  Análisis: "Documento de Análisis",
+  Arquitectura: "Diseño de Arquitectura",
+};
+
+function DownloadPopup({
+  docName,
+  onClose,
+}: {
+  docName: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative mx-4 flex min-w-[300px] max-w-sm animate-in zoom-in fade-in flex-col items-center gap-4 rounded-2xl bg-white p-8 shadow-2xl duration-200">
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-gray-400 transition hover:text-gray-600"
+        >
+          <X size={18} />
+        </button>
+        <div className="rounded-full bg-green-100 p-4">
+          <CheckCircle className="text-green-500" size={36} />
+        </div>
+        <div className="text-center">
+          <h2 className="mb-1 text-lg font-bold text-gray-800">
+            ¡Descarga exitosa!
+          </h2>
+          <p className="text-sm text-gray-500">
+            <span className="font-semibold text-gray-700">{docName}</span> se ha
+            descargado correctamente.
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="mt-2 rounded-full bg-[#EB0029] px-8 py-2 text-sm font-semibold text-white shadow transition hover:bg-[#c8001f]"
+        >
+          Aceptar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EmailPopup({
+  success,
+  message,
+  onClose,
+}: {
+  success: boolean;
+  message: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative mx-4 flex min-w-[300px] max-w-sm animate-in zoom-in fade-in flex-col items-center gap-4 rounded-2xl bg-white p-8 shadow-2xl duration-200">
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-gray-400 transition hover:text-gray-600"
+        >
+          <X size={18} />
+        </button>
+        <div
+          className={`rounded-full p-4 ${success ? "bg-green-100" : "bg-red-100"}`}
+        >
+          {success ? (
+            <CheckCircle className="text-green-500" size={36} />
+          ) : (
+            <X className="text-red-500" size={36} />
+          )}
+        </div>
+        <div className="text-center">
+          <h2 className="mb-1 text-lg font-bold text-gray-800">
+            {success ? "¡Correo enviado!" : "Error al enviar"}
+          </h2>
+          <p className="text-sm text-gray-500">{message}</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="mt-2 rounded-full bg-[#EB0029] px-8 py-2 text-sm font-semibold text-white shadow transition hover:bg-[#c8001f]"
+        >
+          Aceptar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function Documentacion({
+  expanded,
+  onToggle,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const [tab, setTab] = useState<"ERS" | "Análisis" | "Arquitectura">("ERS");
+  const [showPopup, setShowPopup] = useState(false);
+  const [loadingERS, setLoadingERS] = useState(true);
+  const [changedFields, setChangedFields] = useState<Set<string>>(new Set());
+  const [widgets, setWidgets] = useState<Widget[]>([]);
+  const [isWidgetsOpen, setIsWidgetsOpen] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailPopup, setEmailPopup] = useState<{
+    show: boolean;
+    success: boolean;
+    message: string;
+  }>({
+    show: false,
+    success: false,
+    message: "",
+  });
+
+  const prevRawDataRef = useRef<any>(null);
+
+  const getActiveProjectId = () => {
+    if (typeof window === "undefined") return "";
+    return sessionStorage.getItem("project_id") || "";
+  };
+
+  const getToken = () => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("token") || "";
+  };
+
+  const mapDataToWidgets = (data: any): Widget[] => {
+    const posiciones: string[] = data.posiciones ?? [];
+    return posiciones.map((widgetId, index) => {
+      const w = data[widgetId] ?? {};
+      return {
+        posicion: index,
+        id_widget: widgetId,
+        titulo: w.titulo ?? widgetId,
+        objetivo_widget: w.objetivo_widget ?? "",
+        descripcion_campos: w.descripcion_campos ?? {},
+        campos: w.campos ?? {},
+      };
+    });
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const detectChanges = (oldData: any, newData: any) => {
+      const changed = new Set<string>();
+      const compare = (obj1: any, obj2: any, path = "") => {
+        if (Array.isArray(obj2)) {
+          obj2.forEach((item, index) => {
+            const newPath = path ? `${path}.${index}` : `${index}`;
+            if (typeof item === "object" && item !== null) {
+              compare(obj1?.[index], item, newPath);
+            } else if (obj1?.[index] !== item) {
+              changed.add(newPath);
+            }
+          });
+          return;
+        }
+        for (const key in obj2) {
+          const newPath = path ? `${path}.${key}` : key;
+          if (typeof obj2[key] === "object" && obj2[key] !== null) {
+            compare(obj1?.[key], obj2[key], newPath);
+          } else if (obj1?.[key] !== obj2[key]) {
+            changed.add(newPath);
+          }
+        }
+      };
+      compare(oldData, newData);
+      return changed;
+    };
+
+    const fetchERS = async () => {
+      try {
+        const docId = getActiveProjectId();
+        console.log("🔵 fetchERS corriendo con docId:", docId);
+        if (!docId) return;
+
+        const response = await fetch(
+          `https://api-anemona-637376850775.northamerica-northeast1.run.app/firestore/bajar?doc_id=${encodeURIComponent(docId)}`,
+          {
+            method: "GET",
+            headers: { accept: "application/json" },
+            cache: "no-store",
+          },
+        );
+
+        if (!response.ok) throw new Error("No se pudo obtener el ERS");
+
+        const json = await response.json();
+        console.log("🟢 json.data →", json.data);
+
+        if (isMounted && json.ok && json.data) {
+          const changes = prevRawDataRef.current
+            ? detectChanges(prevRawDataRef.current, json.data)
+            : new Set<string>();
+
+          if (changes.size > 0) {
+            console.log("🟡 changedFields:", [...changes]);
+            setChangedFields(changes);
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+              if (isMounted) setChangedFields(new Set());
+            }, 5000);
+          }
+
+          prevRawDataRef.current = json.data;
+          setWidgets(mapDataToWidgets(json.data));
+        }
+      } catch (error) {
+        console.error("Error cargando ERS:", error);
+      } finally {
+        if (isMounted) setLoadingERS(false);
+      }
+    };
+
+    const handleRefresh = () => setTimeout(() => fetchERS(), 100);
+
+    fetchERS();
+    window.addEventListener("ers-refresh", handleRefresh);
+    window.addEventListener("chat-session-changed", handleRefresh);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("ers-refresh", handleRefresh);
+      window.removeEventListener("chat-session-changed", handleRefresh);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleOpenWidgets = () => setIsWidgetsOpen(true);
+    window.addEventListener("open-widgets-modal", handleOpenWidgets);
+    return () =>
+      window.removeEventListener("open-widgets-modal", handleOpenWidgets);
+  }, []);
+
+  const handleSendEmail = async () => {
+    const docId = getActiveProjectId();
+    const token = getToken();
+
+    const userName = [
+      localStorage.getItem("nombre"),
+      localStorage.getItem("apellidopaterno"),
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    if (!docId) {
+      setEmailPopup({
+        show: true,
+        success: false,
+        message: "No hay documento activo para enviar.",
+      });
+      return;
+    }
+    if (!token) {
+      setEmailPopup({
+        show: true,
+        success: false,
+        message: "No se encontró sesión activa. Por favor inicia sesión.",
+      });
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const response = await fetch(`${API_BASE}/email/send-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          doc_id: docId,
+          user_name: userName,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.ok) {
+        setEmailPopup({
+          show: true,
+          success: true,
+          message:
+            data.message ?? "El correo fue enviado correctamente a tu cuenta.",
+        });
+      } else {
+        setEmailPopup({
+          show: true,
+          success: false,
+          message: data.detail ?? "Ocurrió un error al enviar el correo.",
+        });
+      }
+    } catch (error) {
+      console.error("Error enviando correo:", error);
+      setEmailPopup({
+        show: true,
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo conectar con el servidor. Intenta de nuevo.",
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const wrapperClass = expanded
+    ? "flex-1 h-full min-w-[520px] transition-all duration-300"
+    : "w-full max-w-xs h-full transition-all duration-300";
+
+  const handleDownload = () => {
+    if (tab === "Arquitectura") {
+      const svgEl = document.querySelector(
+        "#arq-svg-container svg",
+      ) as SVGSVGElement | null;
+      if (!svgEl) return;
+      const serializer = new XMLSerializer();
+      const svgStr = serializer.serializeToString(svgEl);
+      const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "arquitectura.svg";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setShowPopup(true);
+    }
+  };
+
+  return (
+    <>
+      {showPopup && (
+        <DownloadPopup
+          docName={DOC_NAMES[tab]}
+          onClose={() => setShowPopup(false)}
+        />
+      )}
+
+      {emailPopup.show && (
+        <EmailPopup
+          success={emailPopup.success}
+          message={emailPopup.message}
+          onClose={() =>
+            setEmailPopup({ show: false, success: false, message: "" })
+          }
+        />
+      )}
+
+      <section className={wrapperClass}>
+        <div className="relative flex h-full flex-col rounded-3xl bg-gray-100 p-6 shadow-md">
+          <button
+            onClick={onToggle}
+            className="absolute -left-5 top-6 z-50 cursor-pointer rounded-full bg-white p-2 shadow transition hover:scale-105"
+          >
+            {expanded ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+          </button>
+
+          {/* ── Vista colapsada ── */}
+          {!expanded && (
+            <div className="flex h-full flex-col gap-3">
+              <div className="shrink-0">
+                <h1 className="text-xl font-bold text-[#EB0029]">
+                  Documentos de Salida
+                </h1>
+                <div className="mt-1 h-[2px] w-full bg-[#EB0029]" />
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+                {(["ERS", "Análisis", "Arquitectura"] as const).map((t) => (
+                  <div key={t} className="flex shrink-0 flex-col gap-1">
+                    <span className="px-1 text-xs font-bold uppercase tracking-wider text-gray-500">
+                      {DOC_NAMES[t]}
+                    </span>
+                    <div className="relative h-72 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-md">
+                      {t === "ERS" || t === "Análisis" ? (
+                        <div
+                          className="pointer-events-none h-full w-full overflow-hidden"
+                          style={{
+                            transform: "scale(0.33)",
+                            transformOrigin: "top left",
+                            width: "303%",
+                            height: "303%",
+                          }}
+                        >
+                          {loadingERS ? (
+                            <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                              Cargando ERS...
+                            </div>
+                          ) : (
+                            <WidgetRenderer
+                              widgets={widgets}
+                              changedFields={changedFields}
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <div
+                          className="pointer-events-none h-full w-full overflow-hidden"
+                          style={{
+                            transform: "scale(0.33)",
+                            transformOrigin: "top left",
+                            width: "303%",
+                            height: "303%",
+                          }}
+                        >
+                          <ArquitecturaDiagram />
+                        </div>
+                      )}
+                      <button
+                        onClick={() => {
+                          setTab(t);
+                          onToggle();
+                        }}
+                        className="group absolute inset-0 h-full w-full bg-transparent transition hover:bg-[#EB0029]/5"
+                        title="Expandir para ver completo"
+                      >
+                        <span className="absolute bottom-2 right-2 rounded-full bg-[#EB0029] px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition group-hover:opacity-100">
+                          Ver completo
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Vista expandida ── */}
+          {expanded && (
+            <>
+              <div className="relative mb-5 flex items-center justify-center">
+                <div className="flex gap-2 rounded-full bg-white px-2 py-2 shadow">
+                  {(["ERS", "Análisis", "Arquitectura"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setTab(t)}
+                      className={
+                        tab === t
+                          ? "rounded-full bg-[#EB0029] px-10 py-2 text-sm font-semibold text-white shadow"
+                          : "rounded-full px-10 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-100"
+                      }
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="absolute right-0 flex items-center gap-2">
+                  <button
+                    onClick={handleSendEmail}
+                    disabled={sendingEmail}
+                    className="flex cursor-pointer items-center gap-2 bg-transparent p-2 transition hover:scale-110 disabled:cursor-not-allowed disabled:opacity-60"
+                    title="Enviar documento por correo"
+                  >
+                    {sendingEmail ? (
+                      <Loader2
+                        size={22}
+                        className="animate-spin text-[#EB0029]"
+                      />
+                    ) : (
+                      <Mail className="text-[#EB0029]" size={22} />
+                    )}
+                    <span className="font-medium text-[#EB0029]">
+                      {sendingEmail ? "Enviando..." : "Enviar por correo"}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={handleDownload}
+                    className="flex cursor-pointer items-center gap-2 bg-transparent p-2 transition hover:scale-110"
+                    title="Descargar documento"
+                  >
+                    <Download className="text-[#EB0029]" size={22} />
+                    <span className="font-medium text-[#EB0029]">
+                      Descargar
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-white shadow">
+                {tab === "ERS" || tab === "Análisis" ? (
+                  <div className="h-full w-full overflow-y-auto overscroll-contain bg-[#e9e9e9]">
+                    {loadingERS ? (
+                      <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                        Cargando documento...
+                      </div>
+                    ) : (
+                      <WidgetRenderer
+                        widgets={widgets}
+                        changedFields={changedFields}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    id="arq-svg-container"
+                    className="h-full w-full overflow-auto p-4"
+                  >
+                    <ArquitecturaDiagram />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      <WidgetsModal
+        isOpen={isWidgetsOpen}
+        onClose={() => setIsWidgetsOpen(false)}
+        widgets={widgets}
+      />
+    </>
+  );
+}

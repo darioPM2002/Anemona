@@ -84,6 +84,14 @@ export default function ChatBot() {
   const activeBotIdRef = useRef<number | null>(null);
   const lastEventRef   = useRef<"text" | "tool" | null>(null);
 
+  useEffect(() => {
+    console.log("CHATBOT MONTADO");
+
+    return () => {
+      console.log("CHATBOT DESMONTADO");
+    };
+  }, []);
+
   const getMessagesKey = (s: string) => `agent-chat-messages:${s}`;
   const getInputKey    = (s: string) => `agent-chat-input:${s}`;
 

@@ -52,12 +52,21 @@ export default function Dashboard() {
             <ProjectList />
           </Suspense>
 
-          {!expandDocs && <ChatBot />}
+          <div 
+            className={
+              expandDocs
+              ? "flex w-0 min-w-0 min-h-0 overflow-hidden opacity-0 pointer-events-none transition-all duration-300"
+              : "flex flex-1 min-w-[420px] min-h-0 transition-all duration-300"
+            }
+          >
+            <ChatBot />
+          </div>
 
           <Documentacion
             expanded={expandDocs}
-            onToggle={() => setExpandDocs(!expandDocs)}
+            onToggle={() => setExpandDocs((prev) => !prev)}
           />
+
         </>
       )}
     </main>

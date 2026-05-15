@@ -11,6 +11,7 @@ import {
   Widget,
 } from "./widgets/BibliotecaWidgets";
 import { API_URL } from "@/services/api";
+import HelpTooltip from "./Helptooltip";
 
 type WidgetsModalProps = {
   isOpen: boolean;
@@ -389,27 +390,52 @@ if (!isOpen) return null;
               <h2 className="text-2xl font-bold text-gray-800">Mis Widgets</h2>
             </div>
 
-            <div className="flex-1 rounded-3xl bg-[#f9f9f9] p-4 flex flex-col gap-4 overflow-auto">
-              {widgetList.map((widget) => (
-                <div
-                  key={widget.id_widget}
-                  draggable
-                  onDragStart={() => { setDraggingWidget(widget); setDraggingDocIndex(null); }}
-                  onDragEnd={() => { setDraggingWidget(null); setDropIndex(null); }}
-                  className={`w-full rounded-xl bg-white border shadow-sm cursor-grab active:cursor-grabbing select-none transition overflow-hidden
-                    ${draggingWidget?.id_widget === widget.id_widget
-                      ? "opacity-50 scale-95 border-blue-300"
-                      : "border-gray-200 hover:shadow-md hover:border-blue-200"
-                    }`}
-                >
-                  <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50">
-                    <span className="text-gray-300 text-base select-none">⠿</span>
-                    <span className="text-sm font-semibold text-gray-700">{widget.titulo}</span>
-                  </div>
-                  <ScaledWidgetPreview widget={widget as unknown as Widget} />
-                </div>
-              ))}
-            </div>
+                <div className="flex-1 rounded-3xl bg-[#f9f9f9] p-4 flex flex-col gap-4 overflow-auto">
+  {widgetList.map((widget) => (
+    <div
+      key={widget.id_widget}
+      className="relative"
+    >
+      {/* Tooltip afuera de la tarjeta */}
+      {widget.info && (
+        <div className="absolute -top-2 -right-2 z-50">
+          <HelpTooltip
+            text={widget.info}
+            position="left"
+          />
+        </div>
+      )}
+
+      <div
+        draggable
+        onDragStart={() => {
+          setDraggingWidget(widget);
+          setDraggingDocIndex(null);
+        }}
+        onDragEnd={() => {
+          setDraggingWidget(null);
+          setDropIndex(null);
+        }}
+        className={`w-full rounded-xl bg-white border shadow-sm cursor-grab active:cursor-grabbing select-none transition overflow-hidden
+          ${
+            draggingWidget?.id_widget === widget.id_widget
+              ? "opacity-50 scale-95 border-blue-300"
+              : "border-gray-200 hover:shadow-md hover:border-blue-200"
+          }`}
+      >
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50">
+          <span className="text-gray-300 text-base select-none">⠿</span>
+
+          <span className="text-sm font-semibold text-gray-700">
+            {widget.titulo}
+          </span>
+        </div>
+
+        <ScaledWidgetPreview widget={widget as unknown as Widget} />
+      </div>
+    </div>
+  ))}
+</div>
           </div>
         </div>{/* cierre de div relative z-10 flex */}
 

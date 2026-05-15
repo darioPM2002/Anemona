@@ -221,7 +221,11 @@ export default function ChatBot() {
       const res = await fetch(`${API_URL}/agent/query/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, session_id: sessionId, message: text }),
+        body: JSON.stringify({
+          user_id: userId,
+          session_id: sessionId,
+          message: `${text}. Si modificas algún widget o sección, guarda los cambios en Firestore.`,
+          }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => null);

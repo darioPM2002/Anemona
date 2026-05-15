@@ -26,9 +26,10 @@
     }
   },
   {
+    "info": "TABLA: Utiliza una tabla dinámica, modifica header y filas según tus necesidades. Agrega o elimina columnas y filas según sea necesario. Solicita a Anémona para que la configure con los campos que deseas. Ejemplo: TIPO, PROBABLE PERDIDA, JUSTIFICACION.",
     "id_widget": "w_003",
     "posicion": 3,
-    "titulo": "Riesgos",
+    "titulo": "Tabla",
     "objetivo_widget": "Identificar y documentar los riesgos asociados a la iniciativa",
     "descripcion_campos": {
       "filas": "Listado de riesgos",
@@ -36,14 +37,30 @@
       "PROBABLE_PERDIDA": "Probable pérdida",
       "JUSTIFICACION": "Justificación"
     },
-    "campos": {
-      "filas": [
-        { "TIPO": "Credito", "PROBABLE_PERDIDA": null, "JUSTIFICACION": null },
-        { "TIPO": "Liquidez", "PROBABLE_PERDIDA": null, "JUSTIFICACION": null },
-        { "TIPO": "Mercado", "PROBABLE_PERDIDA": null, "JUSTIFICACION": null },
-        { "TIPO": "Operativo", "PROBABLE_PERDIDA": null, "JUSTIFICACION": null },
-        { "TIPO": "Reputacional", "PROBABLE_PERDIDA": null, "JUSTIFICACION": null }
-      ]
-    }
-  }
+   "campos": {
+    "titulo": "Tab",
+
+    "headers": [
+      {
+        "key": "TIPO",
+        "label": "Riesgo"
+      },
+      {
+        "key": "PROBABLE_PERDIDA",
+        "label": "Probable Pérdida"
+      },
+      {
+        "key": "JUSTIFICACION",
+        "label": "Justificación"
+      }
+    ],
+
+    "filas": [
+      {
+        "TIPO": "",
+        "PROBABLE_PERDIDA": "",
+        "JUSTIFICACION": ""
+      }
+    ]
+  }}
 ]

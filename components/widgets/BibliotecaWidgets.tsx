@@ -355,7 +355,7 @@ export const renderW003 = (
       <SubSection
         titleNode={
           <span className="flex items-center gap-1 text-[18px]">
-            {`${widget.posicion}.1 `}
+            {`${widget.posicion}`}
             <input
               value={titulo}
               onChange={(e) => handleTituloChange(e.target.value)}

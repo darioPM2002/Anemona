@@ -201,7 +201,7 @@ const WidgetRenderer: React.FC<Props> = ({ widgets: initialWidgets, changedField
   return (
     <div className="w-full bg-[#ececec] py-8 px-4">
       {/* Botón guardar */}
-      <div className="flex justify-end mb-4 w-[816px] mx-auto">
+      <div className="flex justify-end mb-4 w-[816px] mx-auto print:hidden">
         <button
           onClick={handleSave}
           disabled={loading}
@@ -214,6 +214,7 @@ const WidgetRenderer: React.FC<Props> = ({ widgets: initialWidgets, changedField
       {pages.map((pageBlocks, pageIndex) => (
         <div
           key={pageIndex}
+          data-pdf-page
           className="mx-auto mb-8 w-[816px] border border-gray-300 bg-white shadow-md"
           style={{ height: "1056px", overflow: "hidden" }}
         >

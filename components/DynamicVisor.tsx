@@ -8,6 +8,7 @@ import {
   Widget,
 } from "./widgets/BibliotecaWidgets";
 import { API_URL } from "@/services/api";
+import { renderWChart } from "./widgets/biblioteca_chart";
 
 type Props = {
   widgets: Widget[];
@@ -104,6 +105,8 @@ const WidgetRenderer: React.FC<Props> = ({
         return renderW002(widget, handleChange, highlight); //
       case "w_003":
         return renderW003(widget, handleChange, highlight); //
+      case "w_004":
+        return renderWChart(widget, handleChange); //
       default:
         return null;
     }

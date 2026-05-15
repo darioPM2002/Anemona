@@ -307,21 +307,27 @@ export default function FormModal({
       ],
     },
   },
-   {
-    //// POR HACER
-    id_widget: "w_021",
-    posicion: 4,
-    titulo: "Tabla FR",
-    objetivo_widget: "Asignar responsables y áreas participantes en la iniciativa.",
-    descripcion_campos: {
-      AREA_PARTICIPANTE: "Área participante",
-      RESPONSABLE: "Responsable",
-    },
-    campos: {
-      AREA_PARTICIPANTE: null,
-      RESPONSABLE: null,
-    },
+  {
+  id_widget: "w_004",
+  posicion: 4,
+  titulo: "Gráfica de barras",
+  objetivo_widget: "Eres responsable de gestionar este widget de gráfica de barras dinámica. Sigue estas reglas estrictamente: CAMPO 'barras' (OBLIGATORIO): Revisa el valor actual de campos.barras. Si está vacío, null o no existe, DEBES generarlo con al menos 2 barras relevantes basadas en el contexto del proyecto. Cada barra es un objeto con exactamente dos claves: 'etiqueta' (string con el nombre visible) y 'valor' (número). Si ya tiene contenido, NO lo modifiques a menos que el usuario lo solicite explícitamente. AGREGAR BARRAS: Si el usuario pide agregar una o más barras, haz append al array existente con los nuevos objetos { etiqueta, valor }. MODIFICAR BARRAS: Si el usuario pide cambiar el valor o etiqueta de una barra, localízala por su etiqueta actual y actualiza solo ese objeto. ELIMINAR BARRAS: Si el usuario pide quitar una barra, filtra el array eliminando el objeto cuya etiqueta coincida. REEMPLAZAR TODO: Si el usuario proporciona un conjunto nuevo de barras, reemplaza campos.barras completo. CAMPO 'titulo' (OBLIGATORIO): Si está vacío, genera un título descriptivo basado en lo que representa la gráfica. Solo modifícalo si el usuario lo pide explícitamente. CAMPO 'pie' (OBLIGATORIO): Genera siempre un pie de imagen con el formato: 'Figura N. Descripción breve de lo que muestra la gráfica.' donde N es la posicion del widget. Si ya tiene contenido, NO lo modifiques a menos que el usuario lo solicite. CAMPO 'unidad' (OPCIONAL): Deduce la unidad del contexto del usuario. Si menciona porcentajes usa '%', si menciona puntos usa 'pts', si no hay contexto claro déjalo vacío. REGLA GENERAL: Solo puedes escribir dentro de campos. Nunca modifiques posicion, id_widget, titulo del widget, objetivo_widget ni descripcion_campos.",
+  descripcion_campos: {
+    titulo: "OBLIGATORIO si está vacío. Título descriptivo de lo que representa la gráfica.",
+    unidad: "OPCIONAL. Unidad de medida de los valores. Ej: '%', 'pts', 'USD', 'unidades'.",
+    pie: "OBLIGATORIO si está vacío. Pie de imagen. Formato: 'Figura N. Descripción de la gráfica.'",
+    barras: "OBLIGATORIO. Array de objetos { etiqueta: string, valor: number }. Cada objeto es una barra de la gráfica.",
   },
+  campos: {
+    titulo: "",
+    unidad: "",
+    pie: "",
+    barras: [
+      { etiqueta: "Categoría 1", valor: 60 },
+      { etiqueta: "Categoría 2", valor: 40 },
+    ],
+  },
+},
   {
     //// POR HACER
     id_widget: "w_020", 

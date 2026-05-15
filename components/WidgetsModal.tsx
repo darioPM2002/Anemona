@@ -8,10 +8,12 @@ import {
   renderW001,
   renderW002,
   renderW003,
+
   Widget,
 } from "./widgets/BibliotecaWidgets";
 import { API_URL } from "@/services/api";
 import HelpTooltip from "./Helptooltip";
+import { renderWChart } from "./widgets/biblioteca_chart";
 
 type WidgetsModalProps = {
   isOpen: boolean;
@@ -29,6 +31,7 @@ function renderWidgetNode(
     case "w_001": return renderW001(w, onChange);
     case "w_002": return renderW002(w, onChange);
     case "w_003": return renderW003(w, onChange);
+    case "w_004": return renderWChart(w, onChange);
     default: return <div className="text-[13px] italic text-gray-400">Widget no reconocido: {w.id_widget}</div>;
   }
 }

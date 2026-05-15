@@ -308,7 +308,11 @@ const mapDataToWidgets = (data: any): Widget[] => {
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
-                {(["ERS", "Análisis", "Arquitectura"] as const).map((t) => (
+                {(["ERS",
+                //OCULTAR_ANALISIS "Análisis", 
+                "Arquitectura"
+              //OCULTAR_ANALISIS (así es como estaba antes pero quitando análisis marca error)] as const).map((t) => (
+                ] as ("ERS" | "Análisis" | "Arquitectura")[]).map((t) => ( //momentáneo
                   <div key={t} className="flex shrink-0 flex-col gap-1">
                     <span className="px-1 text-xs font-bold uppercase tracking-wider text-gray-500">
                       {DOC_NAMES[t]}
@@ -354,7 +358,11 @@ const mapDataToWidgets = (data: any): Widget[] => {
             <>
               <div className="relative mb-5 flex items-center justify-center">
                 <div className="flex gap-2 rounded-full bg-white px-2 py-2 shadow">
-                  {(["ERS", "Análisis", "Arquitectura"] as const).map((t) => (
+                  {(["ERS", 
+                  // OCULTAR_ANALISIS "Análisis", 
+                  "Arquitectura"
+                //OCULTAR_ANALISIS (así es como estaba antes pero quitando análisis marca error)] as const).map((t) => (
+                ] as ("ERS" | "Análisis" | "Arquitectura")[]).map((t) => ( //momentáneo
                     <button
                       key={t}
                       onClick={() => setTab(t)}

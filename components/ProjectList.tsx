@@ -238,10 +238,10 @@ Así estaba antes din el botón de log out
 
                 <div className="flex-1">
                   <div className="flex items-center">
-                    <span className="text-[#EB0029] text-sm font-semibold">
-                      {project.folio}
+                    <span className="text-[#EB0029] text-sm font-semibold leading-tight">
+                      {project.nombreproyecto}
                     </span>
-                    <span className="ml-auto text-[10px] text-gray-500">
+                    <span className="ml-auto text-[10px] text-gray-500 shrink-0">
                       {project.fechacreacion
                         ? new Date(project.fechacreacion).toLocaleDateString("es-MX")
                         : ""}
@@ -249,7 +249,7 @@ Así estaba antes din el botón de log out
                   </div>
 
                   <div className="text-xs text-gray-600 mt-1">
-                    {project.nombreproyecto}
+                    {project.folio}
                   </div>
                 </div>
               </div>

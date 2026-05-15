@@ -74,7 +74,9 @@ export const EditableText = ({
   );
 };
 
-/* ================== UI BASE ================== */function SectionLine({
+/* ================== UI BASE ================== */
+
+function SectionLine({
   number,
   title,
   note,
@@ -85,10 +87,7 @@ export const EditableText = ({
   note?: string;
   noteColor?: string;
 }) {
-
-
-
-return (
+  return (
     <div className="mb-4 mt-6">
       <div className="flex items-start gap-3 border-t-2 border-black pt-2 w-full">
         <span className="text-[18px] shrink-0">{number}</span>
@@ -104,18 +103,21 @@ return (
     </div>
   );
 }
+
 function SubSection({
   title,
+  titleNode,
   note,
   noteColor = "text-black",
 }: {
-  title: string;
+  title?: string;
+  titleNode?: React.ReactNode;
   note?: string;
   noteColor?: string;
 }) {
   return (
     <div className="mb-4 mt-5 flex items-center gap-2">
-      <span className="text-[18px]">{title}</span>
+      {titleNode ?? <span className="text-[18px]">{title}</span>}
       {note && <span className={`text-[11px] ${noteColor}`}>{note}</span>}
     </div>
   );
@@ -130,11 +132,12 @@ function BodyText({
 }) {
   return <div className={`text-[13px] leading-[1.2] ${className}`}>{children}</div>;
 }
+
 /* ================== W000 ================== */
 export const renderW000 = (
   widget: Widget,
   onChange: (posicion: number, key: string, value: string) => void,
-  highlight: (path: string) => string = () => ""  // <- highlight
+  highlight: (path: string) => string = () => ""
 ) => {
   const campos = widget.campos || {};
 
@@ -152,27 +155,24 @@ export const renderW000 = (
   const extraFields = Object.keys(campos).filter(
     (k) => !baseFields.some((f) => f.key === k)
   );
-const Cell = (key: string) => (
-  <EditableText
-    value={String(campos[key] ?? "")}
-    onChange={(v) =>
-      onChange(widget.posicion, key, v)
-    }
-  />
-);
+
+  const Cell = (key: string) => (
+    <EditableText
+      value={String(campos[key] ?? "")}
+      onChange={(v) => onChange(widget.posicion, key, v)}
+    />
+  );
+
   return (
     <div className="mb-8">
       <table className="w-full border border-black text-[13px]">
         <tbody>
           {baseFields.map(({ key, label }) => (
             <tr key={key}>
-              <td className="border px-2 py-1 font-bold w-[35%]">
-                {label}
-              </td>
+              <td className="border px-2 py-1 font-bold w-[35%]">{label}</td>
               <td className="border px-2 py-1">{Cell(key)}</td>
             </tr>
           ))}
-
           {extraFields.map((key) => (
             <tr key={key}>
               <td className="border px-2 py-1 font-bold">
@@ -188,26 +188,11 @@ const Cell = (key: string) => (
 };
 
 /* ================== W001 ================== */
-//{
-//  "posicion": 1,
-//  "id_widget": "w_001",
-//  "titulo": "Descripción general de la iniciativa",
-//  "objetivo_widget": "Este widget documenta la visión general del proyecto en el SRS. INSTRUCCIONES PARA EL AGENTE: (1) OBLIGATORIO — revisa el valor actual de 'descripcion' dentro de 'campos'. Si está vacío, null o no existe, DEBES generarla obligatoriamente con base en la información del proyecto: incluye el problema que se desea resolver, el contexto actual del área o proceso afectado, y la justificación de por qué este proyecto es necesario. Si 'descripcion' ya tiene contenido, NO la modifiques a menos que el usuario lo solicite explícitamente. (2) OPCIONAL — solo modifica 'titulo' o 'subtitulo' dentro de 'campos' si el usuario lo solicita explícitamente. Si no los menciona, no los incluyas en 'campos' y se usarán los valores por defecto: título='Descripción general de la iniciativa y justificación', subtítulo='Descripción general de la iniciativa'.",
-//  "descripcion_campos": {
-//    "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
-//    "titulo": "OPCIONAL. Sobrescribe el título principal de la sección. Valor por defecto: 'Descripción general de la iniciativa y justificación'.",
-//    "subtitulo": "OPCIONAL. Sobrescribe el subtítulo de la sección. Valor por defecto: 'Descripción general de la iniciativa'."
-//  },
-//  "campos": {
-//    "descripcion": ""
-//  }
-//}
-
 
 export const renderW001 = (
   widget: Widget,
   onChange: (posicion: number, key: string, value: string) => void,
-  highlight: (path: string) => string = () => ""  // <- highlight
+  highlight: (path: string) => string = () => ""
 ) => {
   const campos = widget.campos || {};
 
@@ -221,9 +206,7 @@ export const renderW001 = (
               campos.titulo ||
               "Descripción general de la iniciativa y justificación"
             }
-            onChange={(e) =>
-              onChange(widget.posicion, "titulo", e.target.value)
-            }
+            onChange={(e) => onChange(widget.posicion, "titulo", e.target.value)}
             className="bg-transparent outline-none font-bold w-full"
           />
         }
@@ -232,43 +215,28 @@ export const renderW001 = (
       />
 
       <input
-        value={
-          campos.subtitulo ||
-          "Descripción general de la iniciativa"
-        }
-        onChange={(e) =>
-          onChange(widget.posicion, "subtitulo", e.target.value)
-        }
+        value={campos.subtitulo || "Descripción general de la iniciativa"}
+        onChange={(e) => onChange(widget.posicion, "subtitulo", e.target.value)}
         className="w-full font-bold text-[13px] mb-4 bg-transparent outline-none"
       />
 
       <BodyText className="mb-6 italic text-[#1d5da8]">
         <EditableText
           value={campos.descripcion || ""}
-          onChange={(v) =>
-            onChange(widget.posicion, "descripcion", v)
-          }
+          onChange={(v) => onChange(widget.posicion, "descripcion", v)}
         />
       </BodyText>
 
       {Object.keys(campos)
-        .filter(
-          (k) =>
-            k !== "titulo" &&
-            k !== "subtitulo" &&
-            k !== "descripcion"
-        )
+        .filter((k) => k !== "titulo" && k !== "subtitulo" && k !== "descripcion")
         .map((key) => (
           <div key={key} className="mb-4">
             <div className="text-[13px] font-semibold">
               {widget.descripcion_campos[key] || key}
             </div>
-
             <EditableText
               value={String(campos[key] ?? "")}
-              onChange={(v) =>
-                onChange(widget.posicion, key, v)
-              }
+              onChange={(v) => onChange(widget.posicion, key, v)}
             />
           </div>
         ))}
@@ -278,31 +246,10 @@ export const renderW001 = (
 
 /* ================== W002 ================== */
 
-//  {
-//    posicion: 1,
-//    id_widget: "w_002",
-//    titulo: "Descripción general de la iniciativa",
-//
-//    objetivo_widget:
-//      "Este widget corresponde a la sección de visión general del SRS. Su objetivo es documentar de forma clara y estructurada la iniciativa o proyecto, proporcionando el contexto necesario para entender el problema que se busca resolver y justificar su desarrollo dentro del sistema.",
-//
-//    descripcion_campos: {
-//
-//        },
-//
-//    campos: {
-//    "Titulo": "Objetivos de la iniciativa",
-//    "Seccion_1": "Contenido de la sección 1. Aquí se puede incluir información detallada sobre el primer objetivo específico de la iniciativa, describiendo las metas concretas que se buscan alcanzar y cómo contribuyen al objetivo general del proyecto.",
-//    "Seccion_1Titulo": "Seccion_1",
-//    "Seccion_2": "Contenido de la sección 2. En esta parte se puede detallar el segundo objetivo específico, explicando su importancia dentro del contexto del proyecto y cómo se relaciona con los demás objetivos para lograr el éxito de la iniciativa.",
-//    "Seccion_2Titulo": "Seccion_2",
-//    },
-//  }
-
 export const renderW002 = (
   widget: Widget,
   onChange: (posicion: number, key: string, value: string) => void,
-  highlight: (path: string) => string = () => ""  // <- highlight
+  highlight: (path: string) => string = () => ""
 ) => {
   const campos = widget.campos || {};
 
@@ -313,9 +260,7 @@ export const renderW002 = (
         title={
           <input
             value={campos.Titulo || "Objetivos de la iniciativa"}
-            onChange={(e) =>
-              onChange(widget.posicion, "Titulo", e.target.value)
-            }
+            onChange={(e) => onChange(widget.posicion, "Titulo", e.target.value)}
             className="bg-transparent outline-none font-bold w-full"
           />
         }
@@ -326,18 +271,13 @@ export const renderW002 = (
       <div className="mb-5">
         <input
           value={campos.Seccion_1Titulo || "Objetivo"}
-          onChange={(e) =>
-            onChange(widget.posicion, "Seccion_1Titulo", e.target.value)
-          }
+          onChange={(e) => onChange(widget.posicion, "Seccion_1Titulo", e.target.value)}
           className="w-full font-bold text-[13px] mb-1 bg-transparent outline-none"
         />
-
         <BodyText className="italic text-[#1d5da8]">
           <EditableText
             value={campos.Seccion_1 || ""}
-            onChange={(v) =>
-              onChange(widget.posicion, "Seccion_1", v)
-            }
+            onChange={(v) => onChange(widget.posicion, "Seccion_1", v)}
           />
         </BodyText>
       </div>
@@ -345,18 +285,13 @@ export const renderW002 = (
       <div className="mb-8">
         <input
           value={campos.Seccion_2Titulo || "Alcance"}
-          onChange={(e) =>
-            onChange(widget.posicion, "Seccion_2Titulo", e.target.value)
-          }
+          onChange={(e) => onChange(widget.posicion, "Seccion_2Titulo", e.target.value)}
           className="w-full font-bold text-[13px] mb-1 bg-transparent outline-none"
         />
-
         <BodyText className="italic text-[#1d5da8]">
           <EditableText
             value={campos.Seccion_2 || ""}
-            onChange={(v) =>
-              onChange(widget.posicion, "Seccion_2", v)
-            }
+            onChange={(v) => onChange(widget.posicion, "Seccion_2", v)}
           />
         </BodyText>
       </div>
@@ -369,83 +304,125 @@ export const renderW002 = (
 export const renderW003 = (
   widget: Widget,
   onChange: (posicion: number, key: string, value: any) => void,
-  highlight: (path: string) => string = () => ""  // <- highlight
+  highlight: (path: string) => string = () => ""
 ) => {
-  const filas = widget.campos?.filas || [];
+  const campos = widget.campos || {};
 
-  const handleRowChange = (
-    index: number,
-    field: string,
-    value: string
-  ) => {
-    const nuevasFilas = filas.map((fila: any, i: number) => {
-      if (i !== index) return fila;
-      return { ...fila, [field]: value };
-    });
+  const defaultHeaders = campos.filas?.[0]
+    ? Object.keys(campos.filas[0]).map((k) => ({ key: k, label: k }))
+    : [
+        { key: "TIPO",             label: "Riesgo" },
+        { key: "PROBABLE_PERDIDA", label: "Probable Pérdida" },
+        { key: "JUSTIFICACION",    label: "Justificación" },
+      ];
 
-    onChange(widget.posicion, "filas", nuevasFilas);
+  const headers: { key: string; label: string }[] = campos.headers || defaultHeaders;
+  const filas: any[] = campos.filas || [];
+  const titulo: string = campos.titulo || widget.titulo || "Riesgos";
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
+
+  const handleTituloChange = (value: string) => {
+    onChange(widget.posicion, "titulo", value);
   };
+
+  const handleHeaderLabelChange = (index: number, value: string) => {
+    const newHeaders = headers.map((h, i) =>
+      i === index ? { ...h, label: value } : h
+    );
+    onChange(widget.posicion, "headers", newHeaders);
+  };
+
+  const handleRowChange = (rowIndex: number, key: string, value: string) => {
+    const newFilas = filas.map((fila: any, i: number) =>
+      i !== rowIndex ? fila : { ...fila, [key]: value }
+    );
+    onChange(widget.posicion, "filas", newFilas);
+  };
+
+  const handleAddColumn = () => {
+    const newKey = `COL_${Date.now()}`;
+    const newHeaders = [...headers, { key: newKey, label: "Nueva columna" }];
+    const newFilas = filas.map((fila: any) => ({ ...fila, [newKey]: "" }));
+    onChange(widget.posicion, "headers", newHeaders);
+    onChange(widget.posicion, "filas", newFilas);
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="mb-8">
       <SubSection
-        title={`${widget.posicion}.1 ${widget.campos?.titulo || widget.titulo || "Riesgos"}.`}
-        //title={`${widget.posicion}.1 ${widget.titulo || "Riesgos"}.`}
+        titleNode={
+          <span className="flex items-center gap-1 text-[18px]">
+            {`${widget.posicion}.1 `}
+            <input
+              value={titulo}
+              onChange={(e) => handleTituloChange(e.target.value)}
+              className="bg-transparent outline-none border-b border-dashed border-gray-400
+                         focus:border-blue-500 font-semibold"
+            />
+            {"."}
+          </span>
+        }
         note="(Obligatorio)"
         noteColor="text-red-600"
       />
 
-      <table className="mb-8 w-full border border-black text-[13px]">
-        <thead>
-          <tr className="bg-[#133b73] text-white">
-            <th className="border px-3 py-1">Riesgo</th>
-            <th className="border px-3 py-1">Probable Pérdida</th>
-            <th className="border px-3 py-1">Justificación</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {filas.length ? (
-            filas.map((fila: any, i: number) => (
-              <tr key={i}>
-                <td className="border px-2 py-1">
+      <div className="overflow-x-auto">
+        <table className="mb-8 w-full border border-black text-[13px]">
+          <thead>
+            <tr className="bg-[#133b73] text-white">
+              {headers.map((h, i) => (
+                <th key={h.key} className="border px-3 py-1 min-w-[120px]">
                   <input
-                    value={fila.TIPO || ""}
-                    onChange={(e) =>
-                      handleRowChange(i, "TIPO", e.target.value)
-                    }
-                    className="w-full bg-transparent outline-none"
+                    value={h.label}
+                    onChange={(e) => handleHeaderLabelChange(i, e.target.value)}
+                    className="bg-transparent text-white text-center outline-none
+                               border-b border-dashed border-white/40
+                               focus:border-white w-full font-semibold"
                   />
-                </td>
-
-                <td className="border px-2 py-1">
-                  <EditableText
-                    value={fila.PROBABLE_PERDIDA || ""}
-                    onChange={(v) =>
-                      handleRowChange(i, "PROBABLE_PERDIDA", v)
-                    }
-                  />
-                </td>
-
-                <td className="border px-2 py-1">
-                  <EditableText
-                    value={fila.JUSTIFICACION || ""}
-                    onChange={(v) =>
-                      handleRowChange(i, "JUSTIFICACION", v)
-                    }
-                  />
+                </th>
+              ))}
+              <th className="border px-2 py-1 w-10">
+                <button
+                  onClick={handleAddColumn}
+                  title="Agregar columna"
+                  className="text-white/70 hover:text-white text-lg leading-none"
+                >
+                  +
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.length ? (
+              filas.map((fila: any, rowIdx: number) => (
+                <tr key={rowIdx}>
+                  {headers.map((h) => (
+                    <td key={h.key} className="border px-2 py-1 align-top">
+                      <EditableText
+                        value={fila[h.key] ?? ""}
+                        onChange={(v) => handleRowChange(rowIdx, h.key, v)}
+                      />
+                    </td>
+                  ))}
+                  <td className="border" />
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={headers.length + 1}
+                  className="border text-center py-2 text-gray-400"
+                >
+                  N/A
                 </td>
               </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={3} className="border text-center py-2">
-                N/A
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

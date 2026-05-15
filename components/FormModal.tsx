@@ -401,23 +401,52 @@ export default function FormModal({
     },
   },
   {
-    //// DONE
-    id_widget: "w_003",
-    posicion: 10,
-    titulo: "Riesgos",
-    objetivo_widget: "Identificar y documentar los riesgos asociados a la iniciativa.",
-    descripcion_campos: {
-      filas: "Listado de riesgos",
-      TIPO: "Tipo de riesgo",
-      PROBABLE_PERDIDA: "Probable pérdida",
-      JUSTIFICACION: "Justificación",
-    },
-    campos: {
-      filas: [
-        { TIPO: "N/A",      PROBABLE_PERDIDA: "N/A", JUSTIFICACION: "N/A" },
-      ],
-    },
+  id_widget: "w_003",
+  posicion: 10,
+  titulo: "Riesgos",
+  objetivo_widget:
+    "Eres responsable de gestionar este widget de identificación de riesgos del proyecto. Se renderiza como una tabla dinámica donde campos.headers define las columnas y campos.filas contiene los datos.",
+
+  descripcion_campos: {
+    titulo: "Título editable de la sección.",
+    headers:
+      "Array ordenado de { key, label }. Define las columnas de la tabla. key es permanente, label es editable.",
+    filas:
+      "OBLIGATORIO. Array de objetos donde cada uno representa una fila. Las keys de cada objeto deben coincidir exactamente con las keys de headers.",
+    TIPO: "Key fija. Nombre o categoría del riesgo identificado.",
+    PROBABLE_PERDIDA:
+      "Key fija. Consecuencia o impacto esperado.",
+    JUSTIFICACION:
+      "Key fija. Razón por la que este riesgo existe.",
   },
+
+  campos: {
+    titulo: "Riesgos",
+
+    headers: [
+      {
+        key: "TIPO",
+        label: "Riesgo",
+      },
+      {
+        key: "PROBABLE_PERDIDA",
+        label: "Probable Pérdida",
+      },
+      {
+        key: "JUSTIFICACION",
+        label: "Justificación",
+      },
+    ],
+
+    filas: [
+      {
+        TIPO: "",
+        PROBABLE_PERDIDA: "",
+        JUSTIFICACION: "",
+      },
+    ],
+  },
+},
   {
     //// POR HACER
     id_widget: "w_012",

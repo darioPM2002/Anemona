@@ -4,6 +4,7 @@ import { SendHorizonal, Bot, User, LayoutDashboard, Zap, CheckCircle2 } from "lu
 import { useEffect, useRef, useState } from "react";
 import FormModal from "./FormModal";
 import { API_URL } from "@/services/api";
+import HelpTooltip from "./Helptooltip";
 
 type MsgRole = "user" | "bot" | "tool_call" | "tool_result";
 
@@ -433,13 +434,21 @@ export default function ChatBot() {
               </button>
             </div>
 
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent("open-widgets-modal"))}
-              className="bg-[#EB0029] text-white font-semibold text-sm px-5 py-3 rounded-lg hover:bg-red-700 transition flex items-center gap-2"
-            >
-              <LayoutDashboard size={20} />
-              Widgets
-            </button>
+
+<div className="flex items-center gap-2">
+  <button
+    onClick={() => window.dispatchEvent(new CustomEvent("open-widgets-modal"))}
+    className="bg-[#EB0029] text-white font-semibold text-sm px-5 py-3 rounded-lg hover:bg-red-700 transition flex items-center gap-2"
+  >
+    <LayoutDashboard size={20} />
+    Widgets
+  </button>
+
+  <HelpTooltip
+    text="Aquí puedes agregar, editar y personalizar las secciones y widgets de la plantilla según las necesidades de tu proyecto."
+    position="right"
+  />
+</div>
           </div>
         </div>
 

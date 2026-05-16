@@ -256,37 +256,82 @@ const mapDataToWidgets = (data: any): Widget[] => {
     ? "flex-1 h-full min-w-[520px] transition-all duration-300"
     : "w-full max-w-xs h-full transition-all duration-300";
 
+  const handleDownload = async () => {
+    if (tab === "Arquitectura") {
+      const svgEl = document.querySelector(
+        "#arq-svg-container svg",
+      ) as SVGSVGElement | null;
+      if (!svgEl) return;
+      const serializer = new XMLSerializer();
+      const svgStr = serializer.serializeToString(svgEl);
+      const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "arquitectura.svg";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setShowPopup(true);
+      return;
+    }
 
-  const handleDownload = () => {
-  if (tab === "Arquitectura") {
-    const svgEl = document.querySelector("#arq-svg-container svg") as SVGSVGElement | null;
-    if (!svgEl) return;
-    const serializer = new XMLSerializer();
-    const svgStr = serializer.serializeToString(svgEl);
-    const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "arquitectura.svg";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    setShowPopup(true);
-  }
-};
+    const docId = getActiveProjectId();
+    if (!docId) {
+      setEmailPopup({
+        show: true,
+        success: false,
+        message: "No hay documento activo para descargar.",
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/widgets/exportar-word`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doc_id: docId, widgets }),
+      });
+
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `SRS_${docId}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setShowPopup(true);
+    } catch (err) {
+      console.error("Error descargando Word:", err);
+      setEmailPopup({
+        show: true,
+        success: false,
+        message: "No se pudo descargar el documento. Intenta de nuevo.",
+      });
+    }
+  };
 
   return (
     <>
       {showPopup && (
-        <DownloadPopup docName={DOC_NAMES[tab]} onClose={() => setShowPopup(false)} />
+        <DownloadPopup
+          docName={DOC_NAMES[tab]}
+          onClose={() => setShowPopup(false)}
+        />
       )}
 
       {emailPopup.show && (
         <EmailPopup
           success={emailPopup.success}
           message={emailPopup.message}
-          onClose={() => setEmailPopup({ show: false, success: false, message: "" })}
+          onClose={() =>
+            setEmailPopup({ show: false, success: false, message: "" })
+          }
         />
       )}
 
@@ -303,52 +348,79 @@ const mapDataToWidgets = (data: any): Widget[] => {
           {!expanded && (
             <div className="flex h-full flex-col gap-3">
               <div className="shrink-0">
-                <h1 className="text-xl font-bold text-[#EB0029]">Documentos de Salida</h1>
+                <h1 className="text-xl font-bold text-[#EB0029]">
+                  Documentos de Salida
+                </h1>
                 <div className="mt-1 h-[2px] w-full bg-[#EB0029]" />
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
-                {(["ERS",
-                //OCULTAR_ANALISIS "Análisis", 
-                "Arquitectura"
-              //OCULTAR_ANALISIS (así es como estaba antes pero quitando análisis marca error)] as const).map((t) => (
-                ] as ("ERS" | "Análisis" | "Arquitectura")[]).map((t) => ( //momentáneo
-                  <div key={t} className="flex shrink-0 flex-col gap-1">
-                    <span className="px-1 text-xs font-bold uppercase tracking-wider text-gray-500">
-                      {DOC_NAMES[t]}
-                    </span>
-                    <div className="relative h-72 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-md">
-                      {t === "ERS" || t === "Análisis" ? (
-                        <div
-                          className="pointer-events-none h-full w-full overflow-hidden"
-                          style={{ transform: "scale(0.33)", transformOrigin: "top left", width: "303%", height: "303%" }}
+                {(
+                  [
+                    "ERS",
+                    //OCULTAR_ANALISIS "Análisis",
+                    "Arquitectura",
+                    //OCULTAR_ANALISIS (así es como estaba antes pero quitando análisis marca error)] as const).map((t) => (
+                  ] as ("ERS" | "Análisis" | "Arquitectura")[]
+                ).map(
+                  (
+                    t, //momentáneo
+                  ) => (
+                    <div key={t} className="flex shrink-0 flex-col gap-1">
+                      <span className="px-1 text-xs font-bold uppercase tracking-wider text-gray-500">
+                        {DOC_NAMES[t]}
+                      </span>
+                      <div className="relative h-72 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-md">
+                        {t === "ERS" || t === "Análisis" ? (
+                          <div
+                            className="pointer-events-none h-full w-full overflow-hidden"
+                            style={{
+                              transform: "scale(0.33)",
+                              transformOrigin: "top left",
+                              width: "303%",
+                              height: "303%",
+                            }}
+                          >
+                            {loadingERS ? (
+                              <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                                Cargando ERS...
+                              </div>
+                            ) : (
+                              <WidgetRenderer
+                                widgets={widgets}
+                                changedFields={changedFields}
+                              />
+                            )}
+                          </div>
+                        ) : (
+                          <div
+                            className="pointer-events-none h-full w-full overflow-hidden"
+                            style={{
+                              transform: "scale(0.33)",
+                              transformOrigin: "top left",
+                              width: "303%",
+                              height: "303%",
+                            }}
+                          >
+                            <ArquitecturaDiagram />
+                          </div>
+                        )}
+                        <button
+                          onClick={() => {
+                            setTab(t);
+                            onToggle();
+                          }}
+                          className="group absolute inset-0 h-full w-full bg-transparent transition hover:bg-[#EB0029]/5"
+                          title="Expandir para ver completo"
                         >
-                          {loadingERS ? (
-                            <div className="flex h-full items-center justify-center text-sm text-gray-500">Cargando ERS...</div>
-                          ) : (
-                            <WidgetRenderer widgets={widgets} changedFields={changedFields} />
-                          )}
-                        </div>
-                      ) : (
-                        <div
-                          className="pointer-events-none h-full w-full overflow-hidden"
-                          style={{ transform: "scale(0.33)", transformOrigin: "top left", width: "303%", height: "303%" }}
-                        >
-                          <ArquitecturaDiagram />
-                        </div>
-                      )}
-                      <button
-                        onClick={() => { setTab(t); onToggle(); }}
-                        className="group absolute inset-0 h-full w-full bg-transparent transition hover:bg-[#EB0029]/5"
-                        title="Expandir para ver completo"
-                      >
-                        <span className="absolute bottom-2 right-2 rounded-full bg-[#EB0029] px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition group-hover:opacity-100">
-                          Ver completo
-                        </span>
-                      </button>
+                          <span className="absolute bottom-2 right-2 rounded-full bg-[#EB0029] px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition group-hover:opacity-100">
+                            Ver completo
+                          </span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
             </div>
           )}
@@ -358,23 +430,30 @@ const mapDataToWidgets = (data: any): Widget[] => {
             <>
               <div className="relative mb-5 flex items-center justify-center">
                 <div className="flex gap-2 rounded-full bg-white px-2 py-2 shadow">
-                  {(["ERS", 
-                  // OCULTAR_ANALISIS "Análisis", 
-                  "Arquitectura"
-                //OCULTAR_ANALISIS (así es como estaba antes pero quitando análisis marca error)] as const).map((t) => (
-                ] as ("ERS" | "Análisis" | "Arquitectura")[]).map((t) => ( //momentáneo
-                    <button
-                      key={t}
-                      onClick={() => setTab(t)}
-                      className={
-                        tab === t
-                          ? "rounded-full bg-[#EB0029] px-10 py-2 text-sm font-semibold text-white shadow"
-                          : "rounded-full px-10 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-100"
-                      }
-                    >
-                      {t}
-                    </button>
-                  ))}
+                  {(
+                    [
+                      "ERS",
+                      // OCULTAR_ANALISIS "Análisis",
+                      "Arquitectura",
+                      //OCULTAR_ANALISIS (así es como estaba antes pero quitando análisis marca error)] as const).map((t) => (
+                    ] as ("ERS" | "Análisis" | "Arquitectura")[]
+                  ).map(
+                    (
+                      t, //momentáneo
+                    ) => (
+                      <button
+                        key={t}
+                        onClick={() => setTab(t)}
+                        className={
+                          tab === t
+                            ? "rounded-full bg-[#EB0029] px-10 py-2 text-sm font-semibold text-white shadow"
+                            : "rounded-full px-10 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-100"
+                        }
+                      >
+                        {t}
+                      </button>
+                    ),
+                  )}
                 </div>
 
                 <div className="absolute right-0 flex items-center gap-2">
@@ -384,8 +463,17 @@ const mapDataToWidgets = (data: any): Widget[] => {
                     className="flex cursor-pointer items-center gap-2 bg-transparent p-2 transition hover:scale-110 disabled:cursor-not-allowed disabled:opacity-60"
                     title="Enviar documento por correo"
                   >
-                    {sendingEmail ? <Loader2 size={22} className="animate-spin text-[#EB0029]" /> : <Mail className="text-[#EB0029]" size={22} />}
-                    <span className="font-medium text-[#EB0029]">{sendingEmail ? "Enviando..." : "Enviar por correo"}</span>
+                    {sendingEmail ? (
+                      <Loader2
+                        size={22}
+                        className="animate-spin text-[#EB0029]"
+                      />
+                    ) : (
+                      <Mail className="text-[#EB0029]" size={22} />
+                    )}
+                    <span className="font-medium text-[#EB0029]">
+                      {sendingEmail ? "Enviando..." : "Enviar por correo"}
+                    </span>
                   </button>
 
                   <button
@@ -394,7 +482,9 @@ const mapDataToWidgets = (data: any): Widget[] => {
                     title="Descargar documento"
                   >
                     <Download className="text-[#EB0029]" size={22} />
-                    <span className="font-medium text-[#EB0029]">Descargar</span>
+                    <span className="font-medium text-[#EB0029]">
+                      Descargar
+                    </span>
                   </button>
                 </div>
               </div>
@@ -403,16 +493,24 @@ const mapDataToWidgets = (data: any): Widget[] => {
                 {tab === "ERS" || tab === "Análisis" ? (
                   <div className="h-full w-full overflow-y-auto overscroll-contain bg-[#e9e9e9]">
                     {loadingERS ? (
-                      <div className="flex h-full items-center justify-center text-sm text-gray-500">Cargando documento...</div>
+                      <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                        Cargando documento...
+                      </div>
                     ) : (
-                      <WidgetRenderer widgets={widgets} changedFields={changedFields} />
+                      <WidgetRenderer
+                        widgets={widgets}
+                        changedFields={changedFields}
+                      />
                     )}
                   </div>
                 ) : (
-                <div id="arq-svg-container" className="h-full w-full overflow-auto p-4">
-                  <ArquitecturaDiagram />
-                </div>
-              )}
+                  <div
+                    id="arq-svg-container"
+                    className="h-full w-full overflow-auto p-4"
+                  >
+                    <ArquitecturaDiagram />
+                  </div>
+                )}
               </div>
             </>
           )}

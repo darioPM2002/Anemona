@@ -5,9 +5,11 @@ import {
   renderW001,
   renderW002,
   renderW003,
+  renderW005,
   Widget,
 } from "./widgets/BibliotecaWidgets";
 import { API_URL } from "@/services/api";
+import { renderWChart } from "./widgets/biblioteca_chart";
 
 type Props = {
   widgets: Widget[];
@@ -20,7 +22,7 @@ type Props = {
 // 856px = área de contenido entre header y footer
 // 808px = área útil (856 - 24 paddingTop - 24 paddingBottom)
 const PAGE_CONTENT_HEIGHT = 856;
-const PAGE_PADDING_V = 48;
+const PAGE_PADDING_V = 54
 export const USABLE_HEIGHT = PAGE_CONTENT_HEIGHT - PAGE_PADDING_V;
 
 export type BlockDef = {
@@ -37,6 +39,7 @@ const WidgetRenderer: React.FC<Props> = ({
   const [pages, setPages] = useState<BlockDef[][]>([]);
   const [measured, setMeasured] = useState(false);
   const measureRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const rowRefs = useRef<{ [widgetPos: number]: (HTMLDivElement | null)[] }>({}); // ayuda al algoritmo greedy a separar por linean no widgets
   const [showError, setShowError] = useState(false); // Pop up error al guardar plantilla
   const [showSuccess, setShowSuccess] = useState(false); // Pop up exito al guardar plantilla
 
@@ -103,7 +106,12 @@ const WidgetRenderer: React.FC<Props> = ({
       case "w_002":
         return renderW002(widget, handleChange, highlight); //
       case "w_003":
-        return renderW003(widget, handleChange, highlight); //
+          return renderW003(widget, handleChange, highlight, false); //
+      case "w_004":
+        return renderWChart(widget, handleChange); //
+      case "w_005": 
+        return renderW005(widget, handleChange, highlight);
+
       default:
         return null;
     }
@@ -133,53 +141,141 @@ const WidgetRenderer: React.FC<Props> = ({
   // - measureRefs[i+1] = widget i
   // Acumula bloques hasta superar USABLE_HEIGHT, luego abre nueva página
   useEffect(() => {
-    if (measured) return;
+  if (measured) return;
 
-    if (sortedWidgets.length === 0) {
-     setPages([[{ id: "intro", node: null }]]);
-     setMeasured(true);
-     return;
-    }   
+  if (sortedWidgets.length === 0) {
+    setPages([[{ id: "intro", node: null }]]);
+    setMeasured(true);
+    return;
+  }
 
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const heights = measureRefs.current.map((el) => el?.offsetHeight ?? 0);
+  const raf = requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const heights = measureRefs.current.map((el) => el?.offsetHeight ?? 0);
 
-        const result: BlockDef[][] = [];
-        let currentPage: BlockDef[] = [];
-        let currentHeight = 0;
+      const result: BlockDef[][] = [];
+      let currentPage: BlockDef[] = [];
+      let currentHeight = 0;
 
-        // El párrafo introductorio siempre va primero en página 1
-        const introHeight = heights[0] ?? 0;
-        currentPage.push({ id: "intro", node: null });
-        currentHeight += introHeight;
+      const introHeight = heights[0] ?? 0;
+      currentPage.push({ id: "intro", node: null });
+      currentHeight += introHeight;
 
-        sortedWidgets.forEach((widget, i) => {
-          const node = renderWidget(widget);
-          if (!node) return;
-          const block: BlockDef = {
-            id: `${widget.id_widget}-${widget.posicion}`,
-            node,
+      sortedWidgets.forEach((widget, i) => {
+        const h = heights[i + 1];
+
+        // W005 — partir por filas
+        if (widget.id_widget === "w_005") {
+          const filas: any[] = widget.campos?.filas ?? [];
+          const rowHeights = (rowRefs.current[widget.posicion] ?? []).map(
+            (el) => el?.offsetHeight ?? 0
+          );
+
+          // Altura del título del widget (SubSection) — estimamos 40px
+          const TITLE_H = 40;
+
+          // Filas que van en la página actual
+          let currentChunk: number[] = [];
+          let chunkHeight = TITLE_H;
+
+          const flushChunk = (isFirst: boolean) => {
+            if (currentChunk.length === 0) return;
+            const chunkFilas = currentChunk.map((idx) => filas[idx]);
+            const node = renderW005Partial(widget, chunkFilas, isFirst);
+            currentPage.push({
+              id: `${widget.id_widget}-${widget.posicion}-chunk-${currentChunk[0]}`,
+              node,
+            });
+            currentHeight += chunkHeight;
+            currentChunk = [];
+            chunkHeight = TITLE_H;
           };
-          const h = heights[i + 1]; // i+1 porque measureRefs[0] es el párrafo intro
-          if (currentHeight + h > USABLE_HEIGHT && currentPage.length > 0) {
-            result.push(currentPage);
-            currentPage = [block];
-            currentHeight = h;
-          } else {
-            currentPage.push(block);
-            currentHeight += h;
-          }
-        });
 
-        if (currentPage.length > 0) result.push(currentPage);
-        setPages(result);
-        setMeasured(true);
+          let isFirst = true;
+
+          filas.forEach((_, rowIdx) => {
+            const rh = rowHeights[rowIdx] ?? 30;
+            if (currentHeight + chunkHeight + rh > USABLE_HEIGHT && currentChunk.length > 0) {
+              flushChunk(isFirst);
+              isFirst = false;
+              result.push(currentPage);
+              currentPage = [];
+              currentHeight = 0;
+            }
+            currentChunk.push(rowIdx);
+            chunkHeight += rh;
+          });
+
+          flushChunk(isFirst);
+          return;
+        }
+
+        // Resto de widgets — comportamiento original
+        const node = renderWidget(widget);
+        if (!node) return;
+        const block: BlockDef = {
+          id: `${widget.id_widget}-${widget.posicion}`,
+          node,
+        };
+        if (currentHeight + h > USABLE_HEIGHT && currentPage.length > 0) {
+          result.push(currentPage);
+          currentPage = [block];
+          currentHeight = h;
+        } else {
+          currentPage.push(block);
+          currentHeight += h;
+        }
       });
-    });
 
-    return () => cancelAnimationFrame(raf);
-  }, [sortedWidgets, measured]);
+      if (currentPage.length > 0) result.push(currentPage);
+      setPages(result);
+      setMeasured(true);
+    });
+  });
+
+  return () => cancelAnimationFrame(raf);
+}, [sortedWidgets, measured]);
+
+const renderW005Partial = (widget: Widget, filas: any[], showTitle: boolean) => {
+  const titulo = widget.campos?.titulo || widget.titulo || "";
+  return (
+    <div className="mb-4">
+      {showTitle && (
+        <div className="mb-4 mt-5 flex items-center gap-2">
+          <span className="flex items-center gap-1 text-[18px]">
+            {widget.posicion}
+            <span className="font-semibold">{titulo}</span>.
+          </span>
+        </div>
+      )}
+      <div className="border border-black text-[13px]">
+        {filas.map((fila: any, rowIdx: number) => (
+          <div
+            key={rowIdx}
+            className="flex w-full"
+            style={{ borderBottom: rowIdx < filas.length - 1 ? "1px solid black" : "none" }}
+          >
+            {fila.celdas.map((cel: any, celIdx: number) => (
+              <div
+                key={celIdx}
+                className="px-2 py-1"
+                style={{
+                  flex: 1,
+                  borderRight: celIdx < fila.celdas.length - 1 ? "1px solid black" : "none",
+                }}
+              >
+                {cel.label && cel.label !== "" && (
+                  <div className="text-[11px] text-gray-500">{cel.label}</div>
+                )}
+                <div className={cel.bold ? "font-bold" : ""}>{cel.valor || ""}</div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
   // ── Fase 1: render invisible para medir alturas + spinner ──
   // Los elementos se renderizan fuera de pantalla para que el navegador
@@ -238,17 +334,47 @@ const WidgetRenderer: React.FC<Props> = ({
               estratégica y conveniencia de su realización.
             </p>
           </div>
-          {/* índices 1..n: widgets */}
-          {sortedWidgets.map((widget, i) => (
-            <div
-              key={`${widget.id_widget}-${widget.posicion}`}
-              ref={(el) => {
-                measureRefs.current[i + 1] = el;
-              }}
-            >
-              {renderWidget(widget)}
-            </div>
-          ))}
+         {/* índices 1..n: widgets */}
+{sortedWidgets.map((widget, i) => (
+  <div
+    key={`${widget.id_widget}-${widget.posicion}`}
+    ref={(el) => { measureRefs.current[i + 1] = el; }}
+  >
+    {renderWidget(widget)}
+  </div>
+))}
+
+{/* Medición de filas individuales de W005 */}
+{sortedWidgets
+  .filter((w) => w.id_widget === "w_005")
+  .map((widget) => {
+    const filas = widget.campos?.filas ?? [];
+    if (!rowRefs.current[widget.posicion]) {
+      rowRefs.current[widget.posicion] = [];
+    }
+    return (
+      <div key={`rows-${widget.posicion}`}>
+        {filas.map((fila: any, rowIdx: number) => (
+          <div
+            key={rowIdx}
+            ref={(el) => { rowRefs.current[widget.posicion][rowIdx] = el; }}
+            className="flex w-full border-b border-black text-[13px]"
+          >
+            {fila.celdas.map((cel: any, celIdx: number) => (
+              <div
+                key={celIdx}
+                className="px-2 py-1"
+                style={{ flex: 1 }}
+              >
+                {cel.label && <div className="text-[11px] text-gray-500">{cel.label}</div>}
+                <div className={cel.bold ? "font-bold" : ""}>{cel.valor}</div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  })}
         </div>
       </div>
     );
@@ -319,15 +445,21 @@ const WidgetRenderer: React.FC<Props> = ({
               </p>
             )}
             {pageBlocks.map((block) => {
-              // El bloque "intro" ya se renderiza arriba, se omite aquí
-              if (block.id === "intro") return null;
-              const widget = sortedWidgets.find(
-                (w) => `${w.id_widget}-${w.posicion}` === block.id,
-              );
-              return (
-                <div key={block.id}>{widget ? renderWidget(widget) : null}</div>
-              );
-            })}
+  if (block.id === "intro") return null;
+
+  // Si el bloque ya tiene node precalculado (chunks de W005), úsalo directo
+  if (block.node) {
+    return <div key={block.id}>{block.node}</div>;
+  }
+
+  // Para el resto de widgets, busca y renderiza normal
+  const widget = sortedWidgets.find(
+    (w) => `${w.id_widget}-${w.posicion}` === block.id,
+  );
+  return (
+    <div key={block.id}>{widget ? renderWidget(widget) : null}</div>
+  );
+})}
           </div>
 
           {/* Footer */}

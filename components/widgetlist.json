@@ -1,28 +1,37 @@
 [
   {
+      "info": "Descripción general de la iniciativa, este widget es ideal para proporcionar un resumen o contexto sobre la iniciativa que se está documentando. Modifica el header y los campos según tus necesidades.",
+
     "id_widget": "w_001",
     "posicion": 1,
-    "titulo": "Descripción de la Iniciativa",
+    "titulo": "Título con un subtítulo y un párrafo",
     "objetivo_widget": "Gestión de la descripción de la iniciativa",
     "descripcion_campos": {
-      "DESCRIPCION_INICIATIVA": "Descripción de la iniciativa"
+      "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
+      "titulo": "Título descriptivo de lo que representa el texto.",
+      "subtitulo": "Subtítulo"
     },
     "campos": {
-      "DESCRIPCION_INICIATIVA": null
+      "descripcion": "descripción",
+      "titulo":"Título descriptivo de lo que representa el texto.",
+      "subtitulo": "Subtítulo"
     }
   },
   {
+        "info": "Sección de subitulo con campos de texto. Modifica el header y los campos según tus necesidades. Ejemplo: OBJETIVO, ALCANCE.",
+
     "id_widget": "w_002",
     "posicion": 2,
-    "titulo": "Objetivos y Alcance",
+    "titulo": "Título con 2 subtítulos y 2 párrafos",
     "objetivo_widget": "Gestión de los objetivos y alcance de la iniciativa",
     "descripcion_campos": {
-      "OBJETIVO": "Objetivo",
-      "ALCANCE": "Alcance"
     },
     "campos": {
-      "OBJETIVO": null,
-      "ALCANCE": null
+      "Titulo": "Título descriptivo de lo que representa el texto.",
+      "Seccion_1": "descripción",
+      "Seccion_1Titulo": "Subtítulo",
+      "Seccion_2": "descripción",    
+      "Seccion_2Titulo": "Subtítulo"
     }
   },
   {
@@ -38,20 +47,20 @@
       "JUSTIFICACION": "Justificación"
     },
    "campos": {
-    "titulo": "Tab",
+    "titulo": "Título de la tabla",
 
     "headers": [
       {
         "key": "TIPO",
-        "label": "Riesgo"
+        "label": "Columna 1"
       },
       {
         "key": "PROBABLE_PERDIDA",
-        "label": "Probable Pérdida"
+        "label": "Columna 2"
       },
       {
         "key": "JUSTIFICACION",
-        "label": "Justificación"
+        "label": "Columna 3"
       }
     ],
 
@@ -62,5 +71,43 @@
         "JUSTIFICACION": ""
       }
     ]
-  }}
+  }},
+
+     {
+      "info": "Grafica de barras dinámica: Este widget te permite visualizar datos de manera gráfica. Solicita al agente crear barras en base a tus necesidades",
+    "id_widget": "w_004",
+    "titulo": "Gráfica de barras",
+    "posicion": 4,
+    "objetivo_widget": "Eres responsable de gestionar este widget de gráfica de barras dinámica. Sigue estas reglas estrictamente: CAMPO 'barras' (OBLIGATORIO): Revisa el valor actual de campos.barras. Si está vacío, null o no existe, DEBES generarlo con al menos 2 barras relevantes basadas en el contexto del proyecto. Cada barra es un objeto con exactamente dos claves: 'etiqueta' (string con el nombre visible) y 'valor' (número). Si ya tiene contenido, NO lo modifiques a menos que el usuario lo solicite explícitamente. AGREGAR BARRAS: Si el usuario pide agregar una o más barras, haz append al array existente con los nuevos objetos { etiqueta, valor }. MODIFICAR BARRAS: Si el usuario pide cambiar el valor o etiqueta de una barra, localízala por su etiqueta actual y actualiza solo ese objeto. ELIMINAR BARRAS: Si el usuario pide quitar una barra, filtra el array eliminando el objeto cuya etiqueta coincida. REEMPLAZAR TODO: Si el usuario proporciona un conjunto nuevo de barras, reemplaza campos.barras completo. CAMPO 'titulo' (OBLIGATORIO): Si está vacío, genera un título descriptivo basado en lo que representa la gráfica. Solo modifícalo si el usuario lo pide explícitamente. CAMPO 'pie' (OBLIGATORIO): Genera siempre un pie de imagen con el formato: 'Figura N. Descripción breve de lo que muestra la gráfica.' donde N es la posicion del widget. Si ya tiene contenido, NO lo modifiques a menos que el usuario lo solicite. CAMPO 'unidad' (OPCIONAL): Deduce la unidad del contexto del usuario. Si menciona porcentajes usa '%', si menciona puntos usa 'pts', si no hay contexto claro déjalo vacío. Solo modifícalo si el usuario lo solicita explícitamente. CONGRUENCIA: El título, pie y barras deben ser coherentes entre sí y con el contexto general del proyecto. REGLA GENERAL: Solo puedes escribir dentro de campos. Nunca modifiques posicion, id_widget, titulo del widget, objetivo_widget ni descripcion_campos.",
+    "descripcion_campos": {
+        "titulo": "OBLIGATORIO si está vacío. Título descriptivo de lo que representa la gráfica.",
+        "unidad": "OPCIONAL. Unidad de medida de los valores. Ej: '%', 'pts', 'USD', 'unidades'.",
+        "pie": "OBLIGATORIO si está vacío. Pie de imagen. Formato: 'Figura N. Descripción de la gráfica.'",
+        "barras": "OBLIGATORIO. Array de objetos { etiqueta: string, valor: number }. Cada objeto es una barra de la gráfica."
+    },
+    "campos": {
+        "titulo": "Título descriptivo de lo que representa las gráficas.",
+        "unidad": "unidad",
+        "pie": "pie",
+        "barras": [
+            { "etiqueta": "Categoría 1", "valor": 60 },
+            { "etiqueta": "Categoría 2", "valor": 40 }
+        ]
+    }
+},
+{
+  "info": "Tabla libre: utiliza este widget cuando necesitas una tabla flexible donde cada fila puede tener diferente número de celdas. Puedes agregar filas con el botón +, agregar o quitar celdas con las flechas laterales y eliminar filas con la X roja. Es ideal para requerimientos de negocio, información regulatoria, responsables, fechas, periodicidad o cualquier sección que no tenga una estructura fija.",
+  "id_widget": "w_005",
+  "titulo": "Tabla libre",
+  "posicion": 5,        
+  "objetivo_widget": "Tabla con estructura completamente libre por filas y celdas.",
+  "descripcion_campos": {},
+  "campos": {
+    "titulo": "Tabla",
+    "filas": [
+      { "celdas": [{ "valor": "Celda 1", "colspan": 1 }, { "valor": "Celda 2", "colspan": 1 }] },
+      { "celdas": [{ "valor": "Fila 2 completa", "colspan": 2 }] }
+    ]
+  }
+}
 ]

@@ -8,10 +8,14 @@ import {
   renderW001,
   renderW002,
   renderW003,
+  renderW005,  
+
+
   Widget,
 } from "./widgets/BibliotecaWidgets";
 import { API_URL } from "@/services/api";
 import HelpTooltip from "./Helptooltip";
+import { renderWChart } from "./widgets/biblioteca_chart";
 
 type WidgetsModalProps = {
   isOpen: boolean;
@@ -29,6 +33,8 @@ function renderWidgetNode(
     case "w_001": return renderW001(w, onChange);
     case "w_002": return renderW002(w, onChange);
     case "w_003": return renderW003(w, onChange);
+    case "w_004": return renderWChart(w, onChange);
+    case "w_005": return renderW005(w, onChange);
     default: return <div className="text-[13px] italic text-gray-400">Widget no reconocido: {w.id_widget}</div>;
   }
 }
@@ -226,12 +232,10 @@ if (!isOpen) return null;
   // Usamos el índice del último elemento añadido como proxy
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
-      <div className="relative w-[1300px] h-[800px] rounded-2xl bg-white shadow-2xl border border-gray-100 overflow-hidden flex flex-col p-8">
-
+   <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30 p-4">
+  <div className="relative w-full max-w-[1300px] h-full max-h-[800px] rounded-2xl bg-white shadow-2xl border border-gray-100 overflow-hidden flex flex-col p-8">
         <img src="/images/RedBob.png" className="absolute -top-16 -right-10 w-52 pointer-events-none select-none z-0" alt="" />
         <img src="/images/GreyBob.png" className="absolute top-1/2 -right-10 -translate-y-1/2 w-36 pointer-events-none select-none z-0" alt="" />
-        <img src="/images/banortegf.png" className="absolute bottom-3 left-4 w-60 pointer-events-none select-none z-0" alt="" />
 
         <button onClick={onClose} className="absolute top-4 right-5 z-10 rounded-md px-2 py-1 text-gray-400 hover:bg-gray-100 hover:text-black transition text-lg">✕</button>
 
@@ -324,8 +328,8 @@ if (!isOpen) return null;
                           >
                             {/* Badge título */}
                             <div className={`absolute -top-3 left-4 text-white text-[10px] font-semibold px-3 py-[2px] rounded-full shadow-sm z-10
-  ${isNew ? "bg-yellow-500" : "bg-blue-500"}
-`}>
+      ${isNew ? "bg-yellow-500" : "bg-blue-500"}
+    `}>
                               {widget.titulo}
                               {isNew && <span className="ml-1 opacity-75">· unsaved</span>}
                             </div>
@@ -391,7 +395,7 @@ if (!isOpen) return null;
             </div>
 
                 <div className="flex-1 rounded-3xl bg-[#f9f9f9] p-4 flex flex-col gap-4 overflow-auto">
-  {widgetList.map((widget) => (
+      {widgetList.map((widget) => (
     <div
       key={widget.id_widget}
       className="relative"
@@ -434,8 +438,8 @@ if (!isOpen) return null;
         <ScaledWidgetPreview widget={widget as unknown as Widget} />
       </div>
     </div>
-  ))}
-</div>
+      ))}
+    </div>
           </div>
         </div>{/* cierre de div relative z-10 flex */}
 

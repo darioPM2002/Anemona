@@ -210,12 +210,12 @@ export const renderW001 = (
             className="bg-transparent outline-none font-bold w-full"
           />
         }
-        note="(Obligatorio)"
+        note="(Opcional)"
         noteColor="text-red-600"
       />
 
       <input
-        value={campos.subtitulo || "Descripción general de la iniciativa"}
+        value={campos.subtitulo || " "}
         onChange={(e) => onChange(widget.posicion, "subtitulo", e.target.value)}
         className="w-full font-bold text-[13px] mb-4 bg-transparent outline-none"
       />
@@ -264,13 +264,13 @@ export const renderW002 = (
             className="bg-transparent outline-none font-bold w-full"
           />
         }
-        note="(Obligatorio)"
+        note="(Opcional)"
         noteColor="text-red-600"
       />
 
       <div className="mb-5">
         <input
-          value={campos.Seccion_1Titulo || "Objetivo"}
+          value={campos.Seccion_1Titulo || " "}
           onChange={(e) => onChange(widget.posicion, "Seccion_1Titulo", e.target.value)}
           className="w-full font-bold text-[13px] mb-1 bg-transparent outline-none"
         />
@@ -284,7 +284,7 @@ export const renderW002 = (
 
       <div className="mb-8">
         <input
-          value={campos.Seccion_2Titulo || "Alcance"}
+          value={campos.Seccion_2Titulo || " "}
           onChange={(e) => onChange(widget.posicion, "Seccion_2Titulo", e.target.value)}
           className="w-full font-bold text-[13px] mb-1 bg-transparent outline-none"
         />
@@ -304,7 +304,8 @@ export const renderW002 = (
 export const renderW003 = (
   widget: Widget,
   onChange: (posicion: number, key: string, value: any) => void,
-  highlight: (path: string) => string = () => ""
+  highlight: (path: string) => string = () => "",
+  showControls: boolean = true // opcional la vista de la coluna extra y las lineas punteadas
 ) => {
   const campos = widget.campos || {};
 
@@ -357,15 +358,16 @@ export const renderW003 = (
           <span className="flex items-center gap-1 text-[18px]">
             {`${widget.posicion}`}
             <input
-              value={titulo}
-              onChange={(e) => handleTituloChange(e.target.value)}
-              className="bg-transparent outline-none border-b border-dashed border-gray-400
-                         focus:border-blue-500 font-semibold"
-            />
+  value={titulo}
+  onChange={(e) => handleTituloChange(e.target.value)}
+  className={`bg-transparent outline-none font-semibold
+    ${showControls ? "border-b border-dashed border-gray-400 focus:border-blue-500" : ""}
+  `}
+/>
             {"."}
           </span>
         }
-        note="(Obligatorio)"
+        note="(Opcional)"
         noteColor="text-red-600"
       />
 
@@ -373,41 +375,44 @@ export const renderW003 = (
         <table className="mb-8 w-full border border-black text-[13px]">
           <thead>
             <tr className="bg-[#133b73] text-white">
-              {headers.map((h, i) => (
-                <th key={h.key} className="border px-3 py-1 min-w-[120px]">
-                  <input
-                    value={h.label}
-                    onChange={(e) => handleHeaderLabelChange(i, e.target.value)}
-                    className="bg-transparent text-white text-center outline-none
-                               border-b border-dashed border-white/40
-                               focus:border-white w-full font-semibold"
-                  />
-                </th>
-              ))}
-              <th className="border px-2 py-1 w-10">
-                <button
-                  onClick={handleAddColumn}
-                  title="Agregar columna"
-                  className="text-white/70 hover:text-white text-lg leading-none"
-                >
-                  +
-                </button>
-              </th>
-            </tr>
+  {headers.map((h, i) => (
+    <th key={h.key} className="border px-3 py-1 min-w-[120px]">
+      <input
+        value={h.label}
+        onChange={(e) => handleHeaderLabelChange(i, e.target.value)}
+        className={`bg-transparent text-white text-center outline-none w-full font-semibold
+          ${showControls ? "border-b border-dashed border-white/40 focus:border-white" : ""}`}
+      />
+    </th>
+  ))}
+
+  {showControls && (
+    <th className="border px-2 py-1 w-10">
+      <button
+        onClick={handleAddColumn}
+        title="Agregar columna"
+        className="text-white/70 hover:text-white text-lg leading-none"
+      >
+        +
+      </button>
+    </th>
+  )}
+</tr>
           </thead>
           <tbody>
             {filas.length ? (
               filas.map((fila: any, rowIdx: number) => (
                 <tr key={rowIdx}>
                   {headers.map((h) => (
-                    <td key={h.key} className="border px-2 py-1 align-top">
-                      <EditableText
-                        value={fila[h.key] ?? ""}
-                        onChange={(v) => handleRowChange(rowIdx, h.key, v)}
-                      />
-                    </td>
-                  ))}
-                  <td className="border" />
+  <td key={h.key} className="border px-2 py-1 align-top">
+    <EditableText
+      value={fila[h.key] ?? ""}
+      onChange={(v) => handleRowChange(rowIdx, h.key, v)}
+    />
+  </td>
+))}
+
+{showControls && <td className="border" />}
                 </tr>
               ))
             ) : (
@@ -422,6 +427,197 @@ export const renderW003 = (
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+};
+
+
+  /* ================== W005 ================== */
+
+export const renderW005 = (
+  widget: Widget,
+  onChange: (posicion: number, key: string, value: any) => void,
+  highlight: (path: string) => string = () => ""
+) => {
+  const campos = widget.campos || {};
+  const titulo: string = campos.titulo || widget.titulo || "";
+  const filas: { celdas: { label?: string; valor: string; colspan?: number; bold?: boolean }[] }[] = campos.filas || [];
+
+  const handleTituloChange = (value: string) => {
+    onChange(widget.posicion, "titulo", value);
+  };
+
+  const handleCeldaChange = (rowIdx: number, celIdx: number, field: "label" | "valor", value: string) => {
+    const newFilas = filas.map((fila, ri) => {
+      if (ri !== rowIdx) return fila;
+      return {
+        ...fila,
+        celdas: fila.celdas.map((cel, ci) =>
+          ci !== celIdx ? cel : { ...cel, [field]: value }
+        ),
+      };
+    });
+    onChange(widget.posicion, "filas", newFilas);
+  };
+
+  const handleColspanChange = (rowIdx: number, celIdx: number, value: number) => {
+    const newFilas = filas.map((fila, ri) => {
+      if (ri !== rowIdx) return fila;
+      return {
+        ...fila,
+        celdas: fila.celdas.map((cel, ci) =>
+          ci !== celIdx ? cel : { ...cel, colspan: value }
+        ),
+      };
+    });
+    onChange(widget.posicion, "filas", newFilas);
+  };
+
+  const handleToggleBold = (rowIdx: number, celIdx: number) => {
+    const newFilas = filas.map((fila, ri) => {
+      if (ri !== rowIdx) return fila;
+      return {
+        ...fila,
+        celdas: fila.celdas.map((cel, ci) =>
+          ci !== celIdx ? cel : { ...cel, bold: !cel.bold }
+        ),
+      };
+    });
+    onChange(widget.posicion, "filas", newFilas);
+  };
+
+  const handleAddRow = () => {
+    const newFilas = [...filas, { celdas: [{ label: "", valor: "", colspan: 1 }] }];
+    onChange(widget.posicion, "filas", newFilas);
+  };
+
+  const handleAddCelda = (rowIdx: number) => {
+    const newFilas = filas.map((fila, ri) => {
+      if (ri !== rowIdx) return fila;
+      return { ...fila, celdas: [...fila.celdas, { label: "", valor: "", colspan: 1 }] };
+    });
+    onChange(widget.posicion, "filas", newFilas);
+  };
+
+  const handleRemoveRow = (rowIdx: number) => {
+    const newFilas = filas.filter((_, ri) => ri !== rowIdx);
+    onChange(widget.posicion, "filas", newFilas);
+  };
+
+  const handleRemoveCelda = (rowIdx: number, celIdx: number) => {
+    const newFilas = filas.map((fila, ri) => {
+      if (ri !== rowIdx) return fila;
+      return { ...fila, celdas: fila.celdas.filter((_, ci) => ci !== celIdx) };
+    });
+    onChange(widget.posicion, "filas", newFilas);
+  };
+return (
+    <div className="mb-8">
+      <SubSection
+        titleNode={
+          <span className="flex items-center gap-1 text-[18px]">
+            {`${widget.posicion}`}
+            <input
+              value={titulo}
+              onChange={(e) => handleTituloChange(e.target.value)}
+              className="bg-transparent outline-none border-b border-dashed border-gray-400 focus:border-blue-500 font-semibold"
+            />
+            {"."}
+          </span>
+        }
+      />
+
+      <div className="flex items-start gap-2">
+        {/* "Tabla" con divs para que cada fila sea independiente */}
+        <div className="flex-1 border border-black text-[13px]">
+          {filas.map((fila, rowIdx) => (
+            <div key={rowIdx} className="flex w-full" style={{ borderBottom: rowIdx < filas.length - 1 ? "1px solid black" : "none" }}>
+              {fila.celdas.map((cel, celIdx) => (
+                <div
+                  key={celIdx}
+                  className="px-2 py-1 align-top"
+                  style={{
+                    flex: 1,
+                    borderRight: celIdx < fila.celdas.length - 1 ? "1px solid black" : "none",
+                  }}
+                >
+                  {cel.label !== undefined && cel.label !== "" && (
+                    <div className="text-[11px] text-gray-500">
+                      <EditableText
+                        value={cel.label}
+                        onChange={(v) => handleCeldaChange(rowIdx, celIdx, "label", v)}
+                      />
+                    </div>
+                  )}
+                  <EditableText
+                    value={cel.valor || ""}
+                    onChange={(v) => handleCeldaChange(rowIdx, celIdx, "valor", v)}
+                    className={cel.bold ? "font-bold" : ""}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Flechitas AFUERA, una por fila */}
+        <div className="flex flex-col mb-2">
+          {filas.map((fila, rowIdx) => (
+            <div
+              key={rowIdx}
+              className="flex flex-col items-center justify-center flex-1 gap-0.5 py-1"
+              style={{ minHeight: "32px" }}
+            >
+              <button
+                onClick={() => handleAddCelda(rowIdx)}
+                className="text-gray-400 hover:text-black"
+                title="Agregar celda"
+              >
+                <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+                  <polyline points="1,8 7,2 13,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => handleRemoveCelda(rowIdx, fila.celdas.length - 1)}
+                disabled={fila.celdas.length <= 1}
+                className="text-gray-400 hover:text-black disabled:opacity-30"
+                title="Quitar celda"
+              >
+                <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+                  <polyline points="1,2 7,8 13,2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Botones quitar fila */}
+        <div className="flex flex-col mb-2">
+          {filas.map((_, rowIdx) => (
+            <div
+              key={rowIdx}
+              className="flex items-center justify-center flex-1 py-1"
+              style={{ minHeight: "32px" }}
+            >
+              <button
+                onClick={() => handleRemoveRow(rowIdx)}
+                className="text-red-300 hover:text-red-500 text-sm"
+                title="Quitar fila"
+              >✕</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Agregar fila */}
+      <div className="flex gap-2 mt-1">
+        <button
+          onClick={handleAddRow}
+          className="text-white/70 hover:text-white text-lg leading-none bg-[#133b73] px-3 py-1 rounded"
+          title="Agregar fila"
+        >+</button>
+        <span className="text-[11px] text-gray-400 self-center">Agregar fila</span>
       </div>
     </div>
   );

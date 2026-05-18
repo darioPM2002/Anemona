@@ -232,7 +232,7 @@ export default function ChatBot() {
         body: JSON.stringify({
           user_id: userId,
           session_id: sessionId,
-          message: `${text}. Si modificas algún widget o sección, guarda los cambios en Firestore.`,
+          message: `${text}. Si modificas algún widget o sección, guarda los cambios en Firestore. Y si es primer mensaje haz proceso de primer mensaje`,
           }),
       });
       if (!res.ok) {

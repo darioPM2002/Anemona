@@ -266,7 +266,7 @@ export default function FormModal({
     },
     campos: {
       "descripcion": "NULL",
-      "titulo":"1.	Descripción general de la iniciativa y justificación.",
+      "titulo":"Descripción general de la iniciativa y justificación.",
       "subtitulo":"Descripción General de la Iniciativa  "
     },
   },
@@ -289,8 +289,8 @@ export default function FormModal({
     },
   },
    {
-    //// DONE pero no pq dario puso tirulos automaticos
-    id_widget: "w_030",
+    //// DONE 
+    id_widget: "w_003",
     posicion: 3,
     titulo: "Areas impactadas",
     objetivo_widget: "Identificar las áreas de la organización que serán impactadas.",
@@ -298,86 +298,69 @@ export default function FormModal({
       filas: "Listado de areas de negocio, que procesos la impactan y la descripcion del impacto",
       AREA_NEGOCIO: "El area del negocio",
       IMPACTOS: "el tipo de proceso y como impactan al area",
-      omg: "esta file no existe y debería ser dinamico para haceptar cualquier numero de filas",
     },
     campos: {
       filas: 
       [
-        { AREA_NEGOCIO: "Área de negocio", IMPACTOS: "Proceso o actividad impactada", omg: "omg" },
+        { AREA_NEGOCIO: "Área de negocio", IMPACTOS: "Proceso o actividad impactada"},
       ],
     },
   },
    {
-    //// POR HACER
-    id_widget: "w_021",
-    posicion: 4,
-    titulo: "Tabla FR",
-    objetivo_widget: "Asignar responsables y áreas participantes en la iniciativa.",
-    descripcion_campos: {
-      AREA_PARTICIPANTE: "Área participante",
-      RESPONSABLE: "Responsable",
+    "posicion": 4,
+    "id_widget": "w_005",
+    "titulo": "Requerimientos de Negocio",
+    "objetivo_widget": "Eres responsable de gestionar este widget de tabla libre para capturar los requerimientos de negocio. Cada fila es independiente y puede tener diferente número de celdas que se distribuyen equitativamente. CAMPO 'filas' (OBLIGATORIO): Array de objetos donde cada uno tiene 'celdas': array de objetos con 'valor' (string, contenido principal), 'label' (string opcional, texto pequeño gris encima del valor), 'bold' (boolean opcional). CAMPO 'titulo' (OBLIGATORIO): Título de la sección. REGLA: Las celdas de cada fila se distribuyen equitativamente en el ancho de forma automática. Solo escribe dentro de campos.",
+    "descripcion_campos": {
+      "titulo": "Título de la sección.",
+      "filas": "Array de filas independientes. Cada fila tiene 'celdas': array de objetos con 'valor' (string), 'label' (string opcional, aparece pequeño encima del valor), 'bold' (boolean opcional). Las celdas se dividen el ancho equitativamente de forma automática por fila."
     },
-    campos: {
-      AREA_PARTICIPANTE: null,
-      RESPONSABLE: null,
-    },
+    "campos": {
+      "titulo": "Requerimientos de Negocio",
+      "filas": [
+        { "celdas": [{ "valor": "tablaFR", "bold": true }] },
+        { "celdas": [
+            { "label": "Área participante", "valor": "" },
+            { "label": "N/A", "valor": "" },
+            { "label": "Responsable", "valor": "" },
+            { "label": "N/A", "valor": "" }
+        ]},
+        { "celdas": [{ "valor": "En caso de ser un requerimiento Regulatorio.", "bold": true }  ]},
+        { "celdas": [
+          { "label": "Autoridad que solicita la regulación o cambio.", "valor": "" },
+          { "label": "por definir", "valor": "" }
+        ]},
+
+        { "celdas": [{ "label": "Fecha de emisión de la regulación.", "valor": "" },
+          { "label": "NA", "valor": "" }
+          ,]},
+        { "celdas": [{ "label": "Fecha de recepción de la regulación por parte de GFNorte.", "valor": "" },
+          { "label": "N/A", "valor": "" }]},
+        { "celdas": [{ "label": "Fecha de entrada en vigor de la regulación.", "valor": "" },
+          { "label": "N/A", "valor": "" }
+        ]},
+        { "celdas": [{ "label": "Monto posible de la sanción (Multa).", "valor": "" },
+          { "label": "0", "valor": "" }
+        ]},
+        { "celdas": [{ "label": "Aplicativos (sistemas) que se ven impactados.", "valor": "" },
+          { "label": "N/A", "valor": "" }
+        ]},
+
+        { "celdas": [{ "valor": "En caso de no ser requerimiento Regulatorio.", "bold": true }] },
+        { "celdas": [
+            { "label": "Es urgente", "valor": "" },
+            { "label": "Fecha límite de la Urgencia", "valor": "" }
+        ]},
+        { "celdas": [{ "valor": "En caso de ser un requerimiento Periódico.", "bold": true }] },
+        { "celdas": [{ "label": "Periodicidad", "valor": "" }]}, 
+        { "celdas": [{ "label": "Fechas requeridas de entrega", "valor": "" }]}, 
+      ]
+    }
   },
+
   {
     //// POR HACER
-    id_widget: "w_020", 
-    posicion: 5,
-    titulo: "Requerimiento regulatorio",
-    objetivo_widget: "Registrar información relacionada con requerimientos regulatorios aplicables.",
-    descripcion_campos: {
-      AUTORIDAD: "Autoridad",
-      FECHA_EMISION: "Fecha de emisión",
-      FECHA_RECEPCION: "Fecha de recepción",
-      FECHA_ENTRADA_VIGOR: "Fecha de entrada en vigor",
-      MONTO_SANCION: "Monto de sanción",
-      SISTEMAS_APLICATIVOS: "Sistemas aplicativos",
-    },
-    campos: {
-      AUTORIDAD: null,
-      FECHA_EMISION: null,
-      FECHA_RECEPCION: null,
-      FECHA_ENTRADA_VIGOR: null,
-      MONTO_SANCION: null,
-      SISTEMAS_APLICATIVOS: [],
-    },
-  },
-   {
-    //// POR HACER
-    id_widget: "w_034",
-    posicion: 6,
-    titulo: "Requerimiento no regulatorio",
-    objetivo_widget: "Capturar requerimientos internos o no regulados.",
-    descripcion_campos: {
-      ES_URGENTE: "Es urgente",
-      FECHA_LIMITE: "Fecha límite",
-    },
-    campos: {
-      ES_URGENTE: null,
-      FECHA_LIMITE: null,
-    },
-  },
-  {
-    //// POR HACER
-    id_widget: "w_008",
-    posicion: 7,
-    titulo: "Requerimiento periódico",
-    objetivo_widget: "Definir periodicidad y fechas de entrega de requerimientos recurrentes.",
-    descripcion_campos: {
-      PERIODICIDAD: "Periodicidad",
-      FECHAS_ENTREGA: "Fechas de entrega",
-    },
-    campos: {
-      PERIODICIDAD: null,
-      FECHAS_ENTREGA: [],
-    },
-  },
-  {
-    //// POR HACER
-    id_widget: "w_009",
+    id_widget: "w_001",
     posicion: 8,
     titulo: "Beneficios",
     objetivo_widget: "Identificar beneficios adicionales derivados de la iniciativa.",
@@ -390,15 +373,17 @@ export default function FormModal({
   },
    {
     //// POR HACER
-    id_widget: "w_010",
+    id_widget: "w_001",
     posicion: 9,
     titulo: "Participación de otras áreas",
     objetivo_widget: "Registrar la participación de otras áreas en la iniciativa.",
     descripcion_campos: {
-      PARTICIPACION_OTRAS_AREAS: "Participación de otras áreas",
+      "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
+      "titulo": "OPCIONAL. Sobrescribe el título principal de la sección. Valor por defecto: 'Descripción general de la iniciativa y justificación'.",
     },
     campos: {
-      PARTICIPACION_OTRAS_AREAS: null,
+      "descripcion": "NULL",
+      "titulo":"Participación de otras áreas",
     },
   },
   {
@@ -450,54 +435,62 @@ export default function FormModal({
 },
   {
     //// POR HACER
-    id_widget: "w_012",
+    id_widget: "w_001",
     posicion: 11,
     titulo: "Exclusiones",
     objetivo_widget: "Definir los elementos fuera del alcance de la iniciativa.",
     descripcion_campos: {
-      EXCLUSIONES: "Exclusiones",
+      "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
+      "titulo": "OPCIONAL. Sobrescribe el título principal de la sección. Valor por defecto: 'Descripción general de la iniciativa y justificación'.",
     },
     campos: {
-      EXCLUSIONES: null,
+      "descripcion": "NULL",
+      "titulo":"Exclusiones",
     },
   },
    {
     //// POR HACER
-    id_widget: "w_013",
+    id_widget: "w_001",
     posicion: 12,
     titulo: "Supuestos",
     objetivo_widget: "Registrar los supuestos considerados para la iniciativa.",
     descripcion_campos: {
-      SUPUESTOS: "Supuestos",
+      "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
+      "titulo": "OPCIONAL. Sobrescribe el título principal de la sección. Valor por defecto: 'Descripción general de la iniciativa y justificación'.",
     },
     campos: {
-      SUPUESTOS: null,
+      "descripcion": "NULL",
+      "titulo":"Supuestos",
     },
   },
   {
-    //// POR HACER
-    id_widget: "w_014",
+    //// DONE pero quiero que el subtitulo sea opcional
+    id_widget: "w_001",
     posicion: 13,
     titulo: "Restricciones",
     objetivo_widget: "Documentar las restricciones que afectan la iniciativa.",
     descripcion_campos: {
-      RESTRICCIONES: "Restricciones",
+      "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
+      "titulo": "OPCIONAL. Sobrescribe el título principal de la sección. Valor por defecto: 'Descripción general de la iniciativa y justificación'.",
     },
     campos: {
-      RESTRICCIONES: null,
+      "descripcion": "NULL",
+      "titulo":"Restricciones",
     },
   },
   {
     //// POR HACER
-    id_widget:"w_015",
+    id_widget:"w_001",
     posicion: 14,
     titulo: "Anexos",
     objetivo_widget: "Adjuntar documentación adicional relevante a la iniciativa.",
     descripcion_campos: {
-      ANEXOS: "Anexos",
+      "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
+      "titulo": "OPCIONAL. Sobrescribe el título principal de la sección. Valor por defecto: 'Descripción general de la iniciativa y justificación'.",
     },
     campos: {
-      ANEXOS: [],
+      "descripcion": "NULL",
+      "titulo":"Anexos",
     },
   },
 ]

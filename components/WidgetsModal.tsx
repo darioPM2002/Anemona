@@ -54,13 +54,17 @@ export default function WidgetsModal({ isOpen, onClose, widgets, onWidgetsChange
   const [reorderDropIndex, setReorderDropIndex] = useState<number | null>(null);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null); // pop up confirmación de borrado de widget 
   const [showError, setShowError] = useState(false); // pop up error al guardar plantilla
+  const [mostrarAyuda, setMostrarAyuda] = useState(false) // widget inical de ayuda
 
 
-  useEffect(() => {
-    if (isOpen) {
-      setDocWidgets(widgets);
-    }
-  }, [isOpen]);
+useEffect(() => {
+  if (isOpen) {
+    setDocWidgets(widgets);
+    const projectId = sessionStorage.getItem("project_id");
+    const yaGuardo = localStorage.getItem(`plantilla_guardada_${projectId}`); // sabe la primera vez que le pico a guardar plantilla
+    setMostrarAyuda(!yaGuardo);
+  }
+}, [isOpen]);
 
   function handleChange(index: number, key: string, value: any) {
     setDocWidgets((prev) => {
@@ -186,6 +190,9 @@ export default function WidgetsModal({ isOpen, onClose, widgets, onWidgetsChange
 
       // Al guardar exitosamente, quita el resaltado amarillo
       setShowSuccess(true);
+      const projectId = sessionStorage.getItem("project_id");// local storage de la primera vez que le pico a la plantilla
+      localStorage.setItem(`plantilla_guardada_${projectId}`, "true"); // local storage de la primera vez que le pico a la plantilla
+      setMostrarAyuda(false);
       window.dispatchEvent(new CustomEvent("ers-refresh")); // <- agrega esto
     } catch (e) {
       console.error(e);
@@ -425,6 +432,24 @@ if (!isOpen) return null;
             </div>
 
             <div className="flex-1 rounded-3xl bg-[#f9f9f9] p-4 flex flex-col gap-4 overflow-auto">
+
+              {mostrarAyuda && (
+  <div className="relative rounded-xl bg-white border-2 border-blue-300 shadow-sm">
+    <div className="flex items-center gap-2 px-4 py-2 border-b border-blue-100 bg-blue-50 rounded-t-xl">
+      <span className="text-sm font-semibold text-blue-700">¿Cómo usar los widgets?</span>
+    </div>
+    <div className="p-3 flex flex-col gap-2">
+      <img
+        src="/images/dragndrop.gif"
+        alt="demo"
+        className="w-full rounded-md"
+      />
+      <p className="text-xs text-gray-500 leading-relaxed">
+        Arrastra el widget de tu preferencia a la plantilla y suéltalo cuando aparezca "Suelta aquí".
+      </p>
+    </div>
+  </div>
+)}
               {widgetList.map((widget) => (
                 <div
                   key={`widget-${widget.posicion}`}

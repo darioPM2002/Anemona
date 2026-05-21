@@ -417,14 +417,19 @@ if (!isOpen) return null;
             <div className="mb-3 flex items-center gap-2">
               <LayoutGrid size={20} className="text-[#EB0029]" />
               <h2 className="text-2xl font-bold text-gray-800">Mis Widgets</h2>
+              <HelpTooltip
+                text="Arrastra el widget de tu preferencia a la plantilla, y suéltalo cuando aparezca el texto 'Suelta aquí'"
+                position="left"
+                gifSrc="/images/dragndrop.gif"
+              />
             </div>
 
-                <div className="flex-1 rounded-3xl bg-[#f9f9f9] p-4 flex flex-col gap-4 overflow-auto">
-      {widgetList.map((widget) => (
-  <div
-    key={`widget-${widget.posicion}`}
-    className="relative"
-  >
+            <div className="flex-1 rounded-3xl bg-[#f9f9f9] p-4 flex flex-col gap-4 overflow-auto">
+              {widgetList.map((widget) => (
+                <div
+                  key={`widget-${widget.posicion}`}
+                  className="relative"
+                >
       {/* Tooltip afuera de la tarjeta */}
       {widget.info && (
         <div className="absolute -top-2 -right-2 z-50">
@@ -499,7 +504,6 @@ if (!isOpen) return null;
             </div>
           </div>
         )}
-
       </div>
     </div>
   );

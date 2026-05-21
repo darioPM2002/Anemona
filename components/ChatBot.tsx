@@ -81,6 +81,7 @@ export default function ChatBot() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [localChatReady, setLocalChatReady] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   const msgIdRef       = useRef(Date.now());
   const nextId         = () => ++msgIdRef.current;
@@ -412,20 +413,34 @@ const [projectName, setProjectName] = useState(() => {
   }
 
   const checkPermiso = async (uid: string, sid: string) => {
-    try {
-      const res = await fetch(`${API_URL}/colaboracion/session/${sid}/permiso/${uid}`);
-      if (res.ok) {
-        const data = await res.json();
-        setIsOwner(data.permiso === "OWNER");
-      } else {
-        setIsOwner(false);
-      }
-    } catch {
+  setChecking(true);
+  try {
+    const res = await fetch(`${API_URL}/colaboracion/session/${sid}/permiso/${uid}`);
+    if (res.ok) {
+      const data = await res.json();
+      setIsOwner(data.permiso === "OWNER");
+    } else {
       setIsOwner(false);
     }
-  };
+  } catch {
+    setIsOwner(false);
+  } finally {
+    setChecking(false);
+  }
+};
 
   console.log("projectFolio al renderizar:", projectFolio);
+
+  if (checking) {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-gray-100 rounded-3xl">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#EB0029] border-t-transparent" />
+        <p className="text-sm text-gray-500">Verificando sesión...</p>
+      </div>
+    </div>
+  );
+}
 
   return (
     <>

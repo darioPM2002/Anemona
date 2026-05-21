@@ -3,6 +3,8 @@
 import { X, Check, UserPlus, UserMinus, FolderEdit } from "lucide-react";
 import { useState, useEffect } from "react";
 import { API_URL } from "@/services/api";
+import DropdownList from "../components/minicomponentes/DropdownList";
+import TextInput from "@/components/minicomponentes/TextInput";
 
 interface ProjectSettingsModalProps {
   isOpen: boolean;
@@ -40,29 +42,26 @@ export default function ProjectSettingsModal({
   const [colaboradores, setColaboradores] = useState<{ idusuario: string; nombre: string | null; correo: string | null }[]>([]);
   const [loadingColabs, setLoadingColabs] = useState(false);
 
-  const [showColabs, setShowColabs] = useState(false);
-
-
   useEffect(() => {
-  if (!isOpen || !folio) return;
+    if (!isOpen || !folio) return;
 
-  const fetchColaboradores = async () => {
-    setLoadingColabs(true);
-    try {
-      const res = await fetch(`${API_URL}/colaboracion/${folio}/obtener-colaboradores`);
-      if (!res.ok) throw new Error("Error al obtener colaboradores");
-      const data = await res.json();
-      setColaboradores(data.colaboradores);
-    } catch (error) {
-      console.error(error);
-      setColaboradores([]);
-    } finally {
-      setLoadingColabs(false);
-    }
-  };
+    const fetchColaboradores = async () => {
+      setLoadingColabs(true);
+      try {
+        const res = await fetch(`${API_URL}/colaboracion/${folio}/obtener-colaboradores`);
+        if (!res.ok) throw new Error("Error al obtener colaboradores");
+        const data = await res.json();
+        setColaboradores(data.colaboradores);
+      } catch (error) {
+        console.error(error);
+        setColaboradores([]);
+      } finally {
+        setLoadingColabs(false);
+      }
+    };
 
-  fetchColaboradores();
-}, [isOpen, folio]);
+    fetchColaboradores();
+  }, [isOpen, folio]);
 
   console.log("folio prop recibido:", folio);
 
@@ -117,14 +116,14 @@ export default function ProjectSettingsModal({
         throw new Error(data.detail || "Error al agregar colaborador");
       setConfirmAdd(false);
       setAddEmail("");
-      
-    if (data.ya_existia) {
-      // Ya era colaborador — muestra error en lugar de éxito
-      setErrorMsg(`El usuario ${addEmail} ya es colaborador de este proyecto.`);
-      setShowError(true);
-    } else {
-      setShowAddSuccess(true);
-    }
+
+      if (data.ya_existia) {
+        // Ya era colaborador — muestra error en lugar de éxito
+        setErrorMsg(`El usuario ${addEmail} ya es colaborador de este proyecto.`);
+        setShowError(true);
+      } else {
+        setShowAddSuccess(true);
+      }
 
     } catch (error) {
       setConfirmAdd(false);
@@ -229,7 +228,7 @@ export default function ProjectSettingsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative mx-4 w-full max-w-md animate-in zoom-in fade-in rounded-2xl bg-white shadow-2xl duration-200 overflow-hidden">
+      <div className="relative mx-4 w-full max-w-md animate-in zoom-in fade-in rounded-2xl bg-white shadow-2xl duration-200 overflow-visible">
         <div className="flex items-center justify-between px-6 pt-6 pb-4">
           <h2 className="text-lg font-bold text-gray-800">Configuración del Proyecto</h2>
           <button onClick={onClose} className="text-gray-400 transition hover:text-gray-600"><X size={18} /></button>
@@ -238,85 +237,56 @@ export default function ProjectSettingsModal({
         <div className="px-6 py-5 flex flex-col gap-6">
 
           {/* Nombre */}
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <FolderEdit size={15} className="text-[#EB0029]" />Nombre del proyecto
-            </label>
-            <div className="flex items-center gap-2">
-              <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleRename(); }}
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <TextInput
+                value={newName}
+                onChange={(val) => setNewName(val)}
                 placeholder="Nombre del proyecto"
-                className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#EB0029] focus:ring-2 focus:ring-[#EB0029]/20" />
-              <button onClick={handleRename} disabled={!newName.trim()}
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#EB0029] text-white transition hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed">
-                <Check size={16} />
-              </button>
+                label="Nombre del proyecto"
+                icon={<FolderEdit size={15} className="text-[#EB0029]" />}
+
+              />
             </div>
+            <button onClick={handleRename} disabled={!newName.trim()}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#EB0029] text-white transition hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed">
+              <Check size={16} />
+            </button>
           </div>
 
           <div className="h-px bg-gray-100" />
 
           {/* Agregar colaborador */}
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <UserPlus size={15} className="text-[#EB0029]" />Agregar Colaborador
-            </label>
-            <div className="flex items-center gap-2">
-              <input type="email" value={addEmail} onChange={(e) => setAddEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && addEmail.trim()) setConfirmAdd(true); }}
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <TextInput
+                value={addEmail}
+                onChange={(val) => setAddEmail(val)}
                 placeholder="correo@ejemplo.com"
-                className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#EB0029] focus:ring-2 focus:ring-[#EB0029]/20" />
-              <button onClick={() => { if (addEmail.trim()) setConfirmAdd(true); }} disabled={!addEmail.trim()}
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#EB0029] text-white transition hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed">
-                <Check size={16} />
-              </button>
+                label="Agregar Colaborador"
+                icon={<UserPlus size={15} className="text-[#EB0029]" />}
+              />
             </div>
+            <button onClick={() => { if (addEmail.trim()) setConfirmAdd(true); }} disabled={!addEmail.trim()}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#EB0029] text-white transition hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed">
+              <Check size={16} />
+            </button>
           </div>
 
-          <div className="h-px bg-gray-100" />
-
-          {/* ── Lista de colaboradores ── */}
-          <div className="flex flex-col gap-1">
-            <button
-              onClick={() => setShowColabs(prev => !prev)}
-              className="flex items-center justify-between w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition"
-            >
-              <span className="flex items-center gap-2">
-                <UserMinus size={15} className="text-[#EB0029]" />
-                Modificar Colaboradores
-                {colaboradores.length > 0 && (
-                  <span className="text-xs font-normal text-gray-400">({colaboradores.length})</span>
-                )}
-              </span>
-              <span className={`text-gray-400 text-xs transition-transform duration-200 ${showColabs ? "rotate-180" : ""}`}>
-                ▾
-              </span>
-            </button>
-
-            {showColabs && (
-              <div className="flex flex-col gap-2 mt-1 max-h-48 overflow-y-auto">
-                {loadingColabs ? (
-                  <p className="text-xs text-gray-400 px-2">Cargando colaboradores...</p>
-                ) : colaboradores.length === 0 ? (
-                  <p className="text-xs text-gray-400 px-2">No hay colaboradores en este proyecto.</p>
-                ) : (
-                  colaboradores.map((colab) => (
-                    <div key={colab.idusuario} className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-800">{colab.nombre ?? "Sin nombre"}</span>
-                        <span className="text-xs text-gray-500">{colab.correo}</span>
-                      </div>
-                      <button
-                        onClick={() => { setRemoveEmail(colab.correo ?? ""); setConfirmRemove(true); }}
-                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-red-50 text-[#EB0029] hover:bg-red-100 transition"
-                      >
-                        <UserMinus size={14} />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+          {/* ── Lista de colaboradores dropdown de minicomponentes ── */}
+          <div className="flex flex-col gap-2 ">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <UserMinus size={15} className="text-[#EB0029]" />
+              Eliminar Colaborador
+            </label>
+            <DropdownList
+              items={colaboradores.map(c => ({ id: c.correo ?? "", nombre: c.nombre ?? c.correo ?? "" }))}
+              selectedIds={removeEmail ? [removeEmail] : []}
+              onToggle={(id) => { setRemoveEmail(id); setConfirmRemove(true); }}
+              placeholder="Selecciona colaborador a eliminar"
+              loading={loadingColabs}
+              multiselect={false}
+            />
           </div>
 
         </div>

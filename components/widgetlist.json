@@ -75,7 +75,8 @@
         { "celdas": [{ "label": "Periodicidad", "valor": "" }]}, 
         { "celdas": [{ "label": "Fechas requeridas de entrega", "valor": "" }]} 
       ]
-    }
+    },
+    "info": "Widget de tabla estructurada para capturar requerimientos de negocio. Incluye secciones para requerimientos regulatorios (autoridad, fechas, multas) y no regulatorios (urgencia, periodicidad). Solicita a Anémona que llene los campos según tu iniciativa."
   },
   {
     "info": "TABLA: Utiliza una tabla dinámica, modifica header y filas según tus necesidades. Agrega o elimina columnas y filas según sea necesario. Solicita a Anémona para que la configure con los campos que deseas. Ejemplo: TIPO, PROBABLE PERDIDA, JUSTIFICACION.",

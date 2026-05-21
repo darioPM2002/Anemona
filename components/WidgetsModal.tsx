@@ -278,7 +278,7 @@ if (!isOpen) return null;
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-[#EB0029]">Modifica tu plantilla</h2>
-                <p className="text-sm text-gray-400 mt-0.5">Arrastra widgets para añadir o reordenar</p>
+                <p className="text-sm text-gray-400 mt-0.5">Arrastra widgets para añadir o reordenar y guarda los cambios</p>
               </div>
               <button
                 onClick={handleSave}

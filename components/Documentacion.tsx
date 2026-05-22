@@ -476,7 +476,7 @@ window.removeEventListener("document-project-change", handleProjectChange);
           {expanded && (
             <>
               <div className="relative mb-5 flex items-center justify-center">
-                <div className="flex gap-2 rounded-full bg-white px-2 py-2 shadow">
+                <div className="flex gap-2 rounded-lg bg-white px-2 py-2 shadow">
                   {(
                     [
                       "ERS",
@@ -493,8 +493,8 @@ window.removeEventListener("document-project-change", handleProjectChange);
                         onClick={() => setTab(t)}
                         className={
                           tab === t
-                            ? "rounded-full bg-[#EB0029] px-10 py-2 text-sm font-semibold text-white shadow"
-                            : "rounded-full px-10 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-100"
+                            ? "rounded-lg bg-[#EB0029] px-10 py-2 text-sm font-semibold text-white shadow"
+                            : "rounded-lg px-10 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-100"
                         }
                       >
                         {t}

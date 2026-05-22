@@ -15,6 +15,13 @@ type Msg = {
   text: string;
   tool?: string;
   isNew?: boolean;
+  timestamp?: number; // ← nuevo: para merge con historial remoto
+};
+
+type HistoryEvent = {
+  author: "user" | "model";
+  parts: { type: string; text: string | null }[];
+  timestamp: number;
 };
 
 function MiniMarkdown({ text }: { text: string }) {
@@ -62,6 +69,88 @@ function renderInline(text: string): React.ReactNode {
   return parts.length > 0 ? parts : text;
 }
 
+// ─── Helpers de sincronización ────────────────────────────────────────────────
+
+/** Convierte los eventos del API a mensajes del chat (solo los que tienen texto) */
+function parseHistoryEvents(events: HistoryEvent[]): Msg[] {
+  const msgs: Msg[] = [];
+  let idCounter = 1;
+  for (const event of events) {
+    const text = event.parts?.find((p) => p.type === "text")?.text;
+    if (!text) continue;
+    msgs.push({
+      id: idCounter++,
+      role: event.author === "user" ? "user" : "bot",
+      text,
+      timestamp: event.timestamp,
+    });
+  }
+  return msgs;
+}
+
+/**
+ * Pide el historial remoto y lo mergea con el caché local.
+ * Reglas:
+ *  - Si un mensaje remoto ya existe en caché (por timestamp), no lo duplica.
+ *  - Si hay mensajes remotos nuevos, los agrega y ordena por timestamp.
+ *  - Si el fetch falla, devuelve el caché sin cambios.
+ */
+async function syncSessionHistory(
+  nextUserId: string,
+  nextSessionId: string,
+  cachedMessages: Msg[]
+): Promise<{ synced: Msg[]; changed: boolean }> {
+  try {
+    const res = await fetch(
+      `${API_URL}/agent/sessions/${nextSessionId}/history?user_id=${nextUserId}`
+    );
+    if (!res.ok) return { synced: cachedMessages, changed: false };
+
+    const data = await res.json();
+    console.log("[ChatBot] Historial remoto obtenido: %d eventos", data.events?.length ?? 0);
+    const remoteEvents: HistoryEvent[] = data.events ?? [];
+    const remoteMessages = parseHistoryEvents(remoteEvents);
+
+    if (remoteMessages.length === 0) return { synced: cachedMessages, changed: false };
+
+    // Si el caché solo tiene el mensaje de bienvenida (o está vacío), usar remoto directo
+    const isEmptyCache =
+      cachedMessages.length === 0 ||
+      (cachedMessages.length === 1 && cachedMessages[0].role === "bot" && !cachedMessages[0].timestamp);
+
+    if (isEmptyCache) {
+      const synced = remoteMessages.map((m, i) => ({ ...m, id: i + 1 }));
+      return { synced, changed: true };
+    }
+
+    // Construir set de timestamps ya presentes en caché
+    const cachedTimestamps = new Set(
+      cachedMessages.map((m) => m.timestamp).filter(Boolean)
+    );
+
+    // Filtrar solo los mensajes remotos que NO están en caché
+    const newMessages = remoteMessages.filter(
+      (m) => m.timestamp && !cachedTimestamps.has(m.timestamp)
+    );
+
+    if (newMessages.length === 0) return { synced: cachedMessages, changed: false };
+
+    // Merge y reordenar por timestamp
+    const merged = [...cachedMessages, ...newMessages].sort(
+      (a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)
+    );
+
+    // Re-asignar IDs secuenciales
+    const synced = merged.map((m, i) => ({ ...m, id: i + 1 }));
+    return { synced, changed: true };
+  } catch (err) {
+    console.warn("[ChatBot] No se pudo sincronizar historial remoto:", err);
+    return { synced: cachedMessages, changed: false };
+  }
+}
+
+// ─── Componente principal ──────────────────────────────────────────────────────
+
 export default function ChatBot() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Msg[]>([
@@ -101,10 +190,7 @@ const [projectName, setProjectName] = useState(() => {
 
   useEffect(() => {
     console.log("CHATBOT MONTADO");
-
-    return () => {
-      console.log("CHATBOT DESMONTADO");
-    };
+    return () => { console.log("CHATBOT DESMONTADO"); };
   }, []);
 
   const getMessagesKey = (s: string) => `agent-chat-messages:${s}`;
@@ -120,28 +206,50 @@ const [projectName, setProjectName] = useState(() => {
     guardar_en_firestore:     "Guardando en Firestore",
   };
 
-  const loadSessionData = (nextUserId: string, nextSessionId: string) => {
+  // ─── Carga de sesión con sync remoto ────────────────────────────────────────
+
+  const loadSessionData = async (nextUserId: string, nextSessionId: string) => {
+    console.log(`[ChatBot] Cargando sesión user_id=${nextUserId} session_id=${nextSessionId}`);
+
     setUserId(nextUserId);
     setSessionId(nextSessionId);
     setTempUserId(nextUserId);
+    setShowLoginModal(false);
+
+    const savedInput = localStorage.getItem(getInputKey(nextSessionId));
+    setInput(savedInput || "");
+
+    // 1️⃣ Mostrar caché local de inmediato
+    const WELCOME: Msg = { id: 1, role: "bot", text: "Hola 👋 Soy tu asistente. ¿En qué te puedo ayudar?" };
+    let cachedMessages: Msg[] = [WELCOME];
+
     const savedMessages = localStorage.getItem(getMessagesKey(nextSessionId));
-    const savedInput    = localStorage.getItem(getInputKey(nextSessionId));
     if (savedMessages) {
       try {
-        const parsed = JSON.parse(savedMessages);
-        const maxId = Math.max(...parsed.map((m: Msg) => m.id), 0);
-        msgIdRef.current = Math.max(msgIdRef.current, maxId + 1);
-        setMessages(parsed);
+        const parsed: Msg[] = JSON.parse(savedMessages);
+        if (parsed.length > 0) cachedMessages = parsed;
       } catch {
-        setMessages([{ id: 1, role: "bot", text: "Hola 👋 Soy tu asistente. ¿En qué te puedo ayudar?" }]);
+        // usar default
       }
-    } else {
-      setMessages([{ id: 1, role: "bot", text: "Hola 👋 Soy tu asistente. ¿En qué te puedo ayudar?" }]);
     }
-    setInput(savedInput || "");
-    setShowLoginModal(false);
-    checkPermiso(nextUserId, nextSessionId);
+
+    const maxIdCached = Math.max(...cachedMessages.map((m) => m.id), 0);
+    msgIdRef.current = Math.max(msgIdRef.current, maxIdCached + 1);
+    setMessages(cachedMessages);
+
+    // 2️⃣ Sincronizar con historial remoto en segundo plano
+    const { synced, changed } = await syncSessionHistory(nextUserId, nextSessionId, cachedMessages);
+
+    if (changed) {
+      const maxIdSynced = Math.max(...synced.map((m) => m.id), 0);
+      msgIdRef.current = Math.max(msgIdRef.current, maxIdSynced + 1);
+      setMessages(synced);
+      localStorage.setItem(getMessagesKey(nextSessionId), JSON.stringify(synced));
+      console.log(`[ChatBot] Sync: ${synced.length - cachedMessages.length} mensaje(s) nuevo(s) agregado(s)`);
+    }
   };
+
+  // ─── Efectos ─────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const handleSessionChanged = (event: Event) => {
@@ -194,6 +302,8 @@ const [projectName, setProjectName] = useState(() => {
       setTimeout(() => inputRef.current?.focus(), 0);
   }, [loadingMessage, userId, sessionId, showLoginModal]);
 
+  // ─── Handlers ────────────────────────────────────────────────────────────────
+
   function handleProjectCreated() {
     const savedUserId    = sessionStorage.getItem("chat_user_id");
     const savedSessionId = sessionStorage.getItem("chat_session_id");
@@ -242,10 +352,12 @@ const [projectName, setProjectName] = useState(() => {
     activeBotIdRef.current = null;
     lastEventRef.current   = null;
 
-    setMessages((prev) => [...prev, { id: userMsgId, role: "user", text, isNew: true }]);
+    // Guardar timestamp del mensaje del usuario para futuros merges
+    const userTimestamp = Date.now() / 1000;
+    setMessages((prev) => [...prev, { id: userMsgId, role: "user", text, isNew: true, timestamp: userTimestamp }]);
     setInput("");
     setLoadingMessage(true);
-    setIsThinking(true); // ← muestra burbuja de "pensando"
+    setIsThinking(true);
 
     try {
       const res = await fetch(`${API_URL}/agent/query/stream`, {
@@ -255,7 +367,7 @@ const [projectName, setProjectName] = useState(() => {
           user_id: userId,
           session_id: sessionId,
           message: `${text}. Si modificas algún widget o sección, guarda los cambios en Firestore. Y si es primer mensaje haz proceso de primer mensaje`,
-          }),
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => null);
@@ -276,7 +388,7 @@ const [projectName, setProjectName] = useState(() => {
             const event = JSON.parse(line.slice(6));
 
             if (event.type === "text") {
-              setIsThinking(false); // ← oculta al llegar primer texto
+              setIsThinking(false);
               if (activeBotIdRef.current === null || lastEventRef.current === "tool") {
                 const newBotId = nextId();
                 activeBotIdRef.current = newBotId;
@@ -285,6 +397,7 @@ const [projectName, setProjectName] = useState(() => {
                   role: "bot",
                   text: event.data,
                   isNew: true,
+                  timestamp: Date.now() / 1000,
                 }]);
               } else {
                 const currentId = activeBotIdRef.current;
@@ -295,7 +408,7 @@ const [projectName, setProjectName] = useState(() => {
               lastEventRef.current = "text";
 
             } else if (event.type === "tool_call") {
-              setIsThinking(false); // ← oculta al llegar tool
+              setIsThinking(false);
               lastEventRef.current = "tool";
               setMessages((prev) => [...prev, {
                 id: nextId(),
@@ -307,7 +420,7 @@ const [projectName, setProjectName] = useState(() => {
 
             } else if (event.type === "tool_result") {
               lastEventRef.current = "tool";
-              setIsThinking(true); // ← vuelve a mostrar mientras procesa resultado
+              setIsThinking(true);
               setMessages((prev) => {
                 const reversed = [...prev].reverse();
                 const idx = reversed.findIndex(
@@ -344,6 +457,8 @@ const [projectName, setProjectName] = useState(() => {
       setLoadingMessage(false);
     }
   }
+
+  // ─── Render helpers ───────────────────────────────────────────────────────────
 
   function renderToolChip(m: Msg) {
     const isDone = m.role === "tool_result";
@@ -484,7 +599,6 @@ const [projectName, setProjectName] = useState(() => {
           <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-4 pr-4 flex flex-col gap-3">
             {messages.map((m) => renderMessage(m))}
 
-            {/* ── Burbuja "pensando" ── */}
             {isThinking && (
               <div className="flex items-start gap-3 animate-slideLeft">
                 <div className="h-10 w-10 rounded-full bg-white shadow flex items-center justify-center flex-shrink-0">
@@ -539,7 +653,20 @@ const [projectName, setProjectName] = useState(() => {
                 <LayoutDashboard size={20} />
                 Widgets
               </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent("open-widgets-modal"))}
+                className="bg-[#EB0029] text-white font-semibold text-sm px-5 py-3 rounded-lg hover:bg-red-700 transition flex items-center gap-2"
+              >
+                <LayoutDashboard size={20} />
+                Widgets
+              </button>
 
+              <HelpTooltip
+                text="Aquí puedes agregar, editar y personalizar las secciones y widgets de la plantilla según las necesidades de tu proyecto."
+                position="right"
+              />
+            </div>
               <HelpTooltip
                 text="Aquí puedes agregar, editar y personalizar las secciones y widgets de la plantilla según las necesidades de tu proyecto."
                 position="right"

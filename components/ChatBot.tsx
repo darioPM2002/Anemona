@@ -131,24 +131,31 @@ async function syncSessionHistory(
       return { synced, changed: true };
     }
 
+    //COMENTADO ARI
     // Construir set de timestamps ya presentes en caché
-    const cachedTimestamps = new Set(
-      cachedMessages.map((m) => m.timestamp).filter(Boolean)
-    );
+    //const cachedTimestamps = new Set(
+      //cachedMessages.map((m) => m.timestamp).filter(Boolean)
+
 
     // Filtrar solo los mensajes remotos que NO están en caché
+    const normalize = (t: string) => t.trim().replace(/\s+/g, " ");
+ 
+    const cachedKeys = new Set(
+      cachedMessages
+        .filter((m) => m.role === "user" || m.role === "bot")
+        .map((m) => `${m.role}|${normalize(m.text)}`)
+    );
+ 
     const newMessages = remoteMessages.filter(
-      (m) => m.timestamp && !cachedTimestamps.has(m.timestamp)
+      (m) => !cachedKeys.has(`${m.role}|${normalize(m.text)}`)
     );
 
     if (newMessages.length === 0) return { synced: cachedMessages, changed: false };
 
-    // Merge y reordenar por timestamp
     const merged = [...cachedMessages, ...newMessages].sort(
       (a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)
     );
 
-    // Re-asignar IDs secuenciales
     const synced = merged.map((m, i) => ({ ...m, id: i + 1 }));
     return { synced, changed: true };
   } catch (err) {

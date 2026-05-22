@@ -1,7 +1,7 @@
 "use client";
 
-import { SendHorizonal, Bot, User, LayoutDashboard, Zap, CheckCircle2, Settings } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { SendHorizonal, Bot, User, LayoutDashboard, Zap, CheckCircle2, Settings, Lock } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import FormModal from "./FormModal";
 import { API_URL } from "@/services/api";
 import HelpTooltip from "./Helptooltip";
@@ -23,6 +23,14 @@ type HistoryEvent = {
   parts: { type: string; text: string | null }[];
   timestamp: number;
 };
+
+type LockInfo = {
+  idusuario: string;
+  nombre: string
+};
+
+type LockState = LockInfo | null | false;
+
 
 function MiniMarkdown({ text }: { text: string }) {
   const lines = text.split("\n");
@@ -166,27 +174,30 @@ export default function ChatBot() {
   const [isThinking, setIsThinking] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  const endRef   = useRef<HTMLDivElement | null>(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [localChatReady, setLocalChatReady] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [checking, setChecking] = useState(false);
 
-  const msgIdRef       = useRef(Date.now());
-  const nextId         = () => ++msgIdRef.current;
+  const [lockedBy, setLockedBy] = useState<LockState>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const msgIdRef = useRef(Date.now());
+  const nextId = () => ++msgIdRef.current;
   const activeBotIdRef = useRef<number | null>(null);
-  const lastEventRef   = useRef<"text" | "tool" | null>(null);
+  const lastEventRef = useRef<"text" | "tool" | null>(null);
 
   const [projectFolio, setProjectFolio] = useState<number | null>(() => {
-  if (typeof window === "undefined") return null;
-  const saved = sessionStorage.getItem("project_folio");
-  return saved ? Number(saved) : null;
-});
-  
-const [projectName, setProjectName] = useState(() => {
-  if (typeof window === "undefined") return "Mi Proyecto";
-  return sessionStorage.getItem("project_name") || "Mi Proyecto";
-});
+    if (typeof window === "undefined") return null;
+    const saved = sessionStorage.getItem("project_folio");
+    return saved ? Number(saved) : null;
+  });
+
+  const [projectName, setProjectName] = useState(() => {
+    if (typeof window === "undefined") return "Mi Proyecto";
+    return sessionStorage.getItem("project_name") || "Mi Proyecto";
+  });
 
   useEffect(() => {
     console.log("CHATBOT MONTADO");
@@ -194,17 +205,111 @@ const [projectName, setProjectName] = useState(() => {
   }, []);
 
   const getMessagesKey = (s: string) => `agent-chat-messages:${s}`;
-  const getInputKey    = (s: string) => `agent-chat-input:${s}`;
+  const getInputKey = (s: string) => `agent-chat-input:${s}`;
 
   const toolLabels: Record<string, string> = {
-    obtener_plantilla:        "Leyendo plantilla",
-    obtener_info_widgets:     "Cargando widgets",
-    actualizar_widget:        "Guardando widget",
-    obtener_progreso:         "Calculando progreso",
-    fijar_doc_id:             "Configurando documento",
+    obtener_plantilla: "Leyendo plantilla",
+    obtener_info_widgets: "Cargando widgets",
+    actualizar_widget: "Guardando widget",
+    obtener_progreso: "Calculando progreso",
+    fijar_doc_id: "Configurando documento",
     leer_srs_desde_firestore: "Leyendo SRS",
-    guardar_en_firestore:     "Guardando en Firestore",
+    guardar_en_firestore: "Guardando en Firestore",
   };
+
+  // Lock helpers
+  const getToken = () => localStorage.getItem("token") ?? "";
+
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+  }, []);
+
+  const startHeartbeat = useCallback((folio: number) => {
+    stopHeartbeat();
+    heartbeatRef.current = setInterval(async () => {
+      try {
+        await fetch(`${API_URL}/proyectos/${folio}/heartbeat`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+      } catch { }
+    }, 2 * 60 * 1000);
+  }, [stopHeartbeat]);
+
+  const lockProject = useCallback(async (folio: number) => {
+    try {
+      const res = await fetch(`${API_URL}/proyectos/${folio}/lock`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+
+      if (res.ok) {
+        setLockedBy(false);
+        startHeartbeat(folio);
+        return;
+      }
+
+      if (res.status === 409) {
+        const err = await res.json().catch(() => null);
+        const info = err?.detail?.locked_by as LockInfo | undefined;
+        setLockedBy(info ?? { idusuario: "?", nombre: "otro usuario" });
+        return;
+      }
+
+      // Libre para no bloquear innecesariamente con cualquier otro error dejar
+      console.warn("[Lock] Respuesta inesperada:", res.status);
+      setLockedBy(false);
+    } catch (e) {
+      console.error("[Lock] Error de red:", e);
+      setLockedBy(false);
+    }
+  }, [startHeartbeat]);
+
+  // Pedir lock cuando tengamos folio y userId
+  useEffect(() => {
+    if (!projectFolio || !userId) return;
+
+    setLockedBy(null);
+    lockProject(projectFolio);
+
+    return () => {
+      releaseProject(projectFolio);
+    };
+  }, [projectFolio, userId]);
+
+  // Liberar al cerrar o recargar pestaña
+  useEffect(() => {
+    const handleUnload = () => {
+      const folio = sessionStorage.getItem("project_folio");
+      if (!folio) return;
+      fetch(`${API_URL}/proyectos/${folio}/lock`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getToken()}` },
+        keepalive: true,
+      }).catch(() => { });
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, []);
+
+
+  const chatBlocked = lockedBy !== null && lockedBy !== false;
+
+  const releaseProject = useCallback(async (folio: number) => {
+    stopHeartbeat();
+    try {
+      await fetch(`${API_URL}/proyectos/${folio}/lock`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getToken()}` },
+        keepalive: true,
+      });
+    } catch { } // El lock expira solo a los 15 min
+  }, [stopHeartbeat]);
+
+
 
   // ─── Carga de sesión con sync remoto ────────────────────────────────────────
 
@@ -254,8 +359,8 @@ const [projectName, setProjectName] = useState(() => {
 
   useEffect(() => {
     const handleSessionChanged = (event: Event) => {
-      const e = event as CustomEvent<{ userId: string; sessionId: string; projectId?: string; folio?: number; nombreproyecto?: string}>;
-      const { userId: u, sessionId: s, projectId , folio, nombreproyecto} = e.detail ?? {};
+      const e = event as CustomEvent<{ userId: string; sessionId: string; projectId?: string; folio?: number; nombreproyecto?: string }>;
+      const { userId: u, sessionId: s, projectId, folio, nombreproyecto } = e.detail ?? {};
       if (!u || !s) return;
       if (projectId) sessionStorage.setItem("project_id", projectId);
       if (folio) setProjectFolio(folio);
@@ -270,9 +375,9 @@ const [projectName, setProjectName] = useState(() => {
 
   useEffect(() => {
     const savedSessionId = sessionStorage.getItem("chat_session_id");
-    const savedUserId    = sessionStorage.getItem("chat_user_id");
-    const savedFolio     = sessionStorage.getItem("project_folio");
-    const savedName      = sessionStorage.getItem("project_name");
+    const savedUserId = sessionStorage.getItem("chat_user_id");
+    const savedFolio = sessionStorage.getItem("project_folio");
+    const savedName = sessionStorage.getItem("project_name");
     if (savedUserId && savedSessionId) {
       loadSessionData(savedUserId, savedSessionId);
     } else {
@@ -306,7 +411,7 @@ const [projectName, setProjectName] = useState(() => {
   // ─── Handlers ────────────────────────────────────────────────────────────────
 
   function handleProjectCreated() {
-    const savedUserId    = sessionStorage.getItem("chat_user_id");
+    const savedUserId = sessionStorage.getItem("chat_user_id");
     const savedSessionId = sessionStorage.getItem("chat_session_id");
     if (savedUserId && savedSessionId) {
       loadSessionData(savedUserId, savedSessionId);
@@ -351,7 +456,7 @@ const [projectName, setProjectName] = useState(() => {
 
     const userMsgId = nextId();
     activeBotIdRef.current = null;
-    lastEventRef.current   = null;
+    lastEventRef.current = null;
 
     // Guardar timestamp del mensaje del usuario para futuros merges
     const userTimestamp = Date.now() / 1000;
@@ -375,7 +480,7 @@ const [projectName, setProjectName] = useState(() => {
         throw new Error(err?.detail || "Error al enviar el mensaje.");
       }
 
-      const reader  = res.body!.getReader();
+      const reader = res.body!.getReader();
       const decoder = new TextDecoder();
 
       while (true) {
@@ -453,7 +558,7 @@ const [projectName, setProjectName] = useState(() => {
       window.dispatchEvent(new CustomEvent("ers-refresh"));
     } finally {
       activeBotIdRef.current = null;
-      lastEventRef.current   = null;
+      lastEventRef.current = null;
       setIsThinking(false);
       setLoadingMessage(false);
     }
@@ -463,7 +568,7 @@ const [projectName, setProjectName] = useState(() => {
 
   function renderToolChip(m: Msg) {
     const isDone = m.role === "tool_result";
-    const label  = toolLabels[m.tool ?? ""] ?? m.tool ?? "Procesando";
+    const label = toolLabels[m.tool ?? ""] ?? m.tool ?? "Procesando";
     return (
       <div key={m.id} className={`flex items-center pl-3 ${m.isNew ? "animate-fadeUp" : ""}`}>
         <div className={`
@@ -529,34 +634,34 @@ const [projectName, setProjectName] = useState(() => {
   }
 
   const checkPermiso = async (uid: string, sid: string) => {
-  setChecking(true);
-  try {
-    const res = await fetch(`${API_URL}/colaboracion/session/${sid}/permiso/${uid}`);
-    if (res.ok) {
-      const data = await res.json();
-      setIsOwner(data.permiso === "OWNER");
-    } else {
+    setChecking(true);
+    try {
+      const res = await fetch(`${API_URL}/colaboracion/session/${sid}/permiso/${uid}`);
+      if (res.ok) {
+        const data = await res.json();
+        setIsOwner(data.permiso === "OWNER");
+      } else {
+        setIsOwner(false);
+      }
+    } catch {
       setIsOwner(false);
+    } finally {
+      setChecking(false);
     }
-  } catch {
-    setIsOwner(false);
-  } finally {
-    setChecking(false);
-  }
-};
+  };
 
   console.log("projectFolio al renderizar:", projectFolio);
 
   if (checking) {
-  return (
-    <div className="flex h-full w-full items-center justify-center bg-gray-100 rounded-3xl">
-      <div className="flex flex-col items-center gap-4">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#EB0029] border-t-transparent" />
-        <p className="text-sm text-gray-500">Verificando sesión...</p>
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-gray-100 rounded-3xl">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#EB0029] border-t-transparent" />
+          <p className="text-sm text-gray-500">Verificando sesión...</p>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <>
@@ -582,12 +687,12 @@ const [projectName, setProjectName] = useState(() => {
             {isOwner && (
               <button
                 onClick={() => {
-                const folio = sessionStorage.getItem("project_folio");
-                const name  = sessionStorage.getItem("project_name");
-                if (folio) setProjectFolio(Number(folio));
-                if (name) setProjectName(name); 
-                setShowSettingsModal(true);
-              }}
+                  const folio = sessionStorage.getItem("project_folio");
+                  const name = sessionStorage.getItem("project_name");
+                  if (folio) setProjectFolio(Number(folio));
+                  if (name) setProjectName(name);
+                  setShowSettingsModal(true);
+                }}
                 className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 bg-white rounded-xl px-3 py-2 shadow-sm hover:shadow transition"
               >
                 <Settings size={15} />
@@ -595,6 +700,24 @@ const [projectName, setProjectName] = useState(() => {
               </button>
             )}
           </div>
+
+          {chatBlocked && typeof lockedBy === "object" && lockedBy && (
+            <div className="mx-4 mt-3 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex-shrink-0">
+              <Lock size={15} className="mt-0.5 flex-shrink-0 text-amber-600" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-amber-800">
+                  Proyecto en uso por {lockedBy.nombre}
+                </p>
+                <p className="mt-0.5 text-xs text-amber-700">
+                  El chat está bloqueado temporalmente. Coordínate con{" "}
+                  {lockedBy.nombre.split(" ")[0]} para acceder.
+                </p>
+                <p className="mt-0.5 text-xs text-amber-600">
+                  Puedes seguir descargando los documentos sin problema.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* ── Mensajes ── */}
           <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-4 pr-4 flex flex-col gap-3">
@@ -626,19 +749,18 @@ const [projectName, setProjectName] = useState(() => {
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    send();
-                  }
-                }}
-                placeholder={userId && sessionId ? "Escribe tu pregunta..." : "Primero inicia sesión"}
-                disabled={!userId || !sessionId}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); send(); } }}
+                placeholder={chatBlocked 
+                  ? "Chat en uso por otro usuario..." 
+                  :userId && sessionId ? "Escribe tu pregunta..." 
+                  :"Primero inicia sesión"
+                }
+                disabled={!userId || !sessionId || chatBlocked}
                 className="w-full rounded-2xl bg-white px-5 pr-14 py-4 text-sm shadow outline-none focus:ring-2 focus:ring-[#EB0029]/30 disabled:bg-gray-200 disabled:cursor-not-allowed"
               />
               <button
                 onClick={send}
-                disabled={!userId || !sessionId || loadingMessage}
+                disabled={!userId || !sessionId || loadingMessage || chatBlocked}
                 className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Enviar"
               >
@@ -649,19 +771,20 @@ const [projectName, setProjectName] = useState(() => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent("open-widgets-modal"))}
-                className="bg-[#EB0029] text-white font-semibold text-sm px-5 py-3 rounded-lg hover:bg-red-700 transition flex items-center gap-2"
+                disabled={chatBlocked}
+                className="bg-[#EB0029] text-white font-semibold text-sm px-5 py-3 rounded-lg hover:bg-red-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#EB0029]"
               >
                 <LayoutDashboard size={20} />
                 Widgets
               </button>
-            
+
             </div>
-              <HelpTooltip
-                text="Aquí puedes agregar, editar y personalizar las secciones y widgets de la plantilla según las necesidades de tu proyecto."
-                position="right"
-              />
-            </div>
+            <HelpTooltip
+              text="Aquí puedes agregar, editar y personalizar las secciones y widgets de la plantilla según las necesidades de tu proyecto."
+              position="right"
+            />
           </div>
+        </div>
 
         <FormModal
           isOpen={showLoginModal}

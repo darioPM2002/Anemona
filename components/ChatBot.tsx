@@ -653,19 +653,7 @@ const [projectName, setProjectName] = useState(() => {
                 <LayoutDashboard size={20} />
                 Widgets
               </button>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => window.dispatchEvent(new CustomEvent("open-widgets-modal"))}
-                className="bg-[#EB0029] text-white font-semibold text-sm px-5 py-3 rounded-lg hover:bg-red-700 transition flex items-center gap-2"
-              >
-                <LayoutDashboard size={20} />
-                Widgets
-              </button>
-
-              <HelpTooltip
-                text="Aquí puedes agregar, editar y personalizar las secciones y widgets de la plantilla según las necesidades de tu proyecto."
-                position="right"
-              />
+            
             </div>
               <HelpTooltip
                 text="Aquí puedes agregar, editar y personalizar las secciones y widgets de la plantilla según las necesidades de tu proyecto."
@@ -673,8 +661,6 @@ const [projectName, setProjectName] = useState(() => {
               />
             </div>
           </div>
-
-        </div>
 
         <FormModal
           isOpen={showLoginModal}

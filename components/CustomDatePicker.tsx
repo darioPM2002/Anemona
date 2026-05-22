@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 type Props = {
   value: string;
@@ -98,23 +98,39 @@ export default function CustomDatePicker({ value, onChange }: Props) {
     setOpen(false);
   };
 
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm outline-none transition focus:border-[#EB0029]"
-      >
-        <span className={value ? "text-gray-700" : "text-gray-400"}>
-          {formatDateForDisplay(value)}
-        </span>
+  const ref = useRef<HTMLDivElement>(null);
 
-        <img
-          src="/images/Calendario.png"
-          alt="Calendario"
-          className="h-4 w-4 object-contain"
-        />
-      </button>
+useEffect(() => {
+  function handleClickOutside(e: MouseEvent) {
+    if (ref.current && !ref.current.contains(e.target as Node)) {
+      setOpen(false);
+    }
+  }
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
+
+  return (
+  <div className="relative" ref={ref}>
+    <button
+      type="button"
+      onClick={() => setOpen((prev) => !prev)}
+      className="w-full text-left"
+    >
+  <div className="bg-gray-100 px-4 pt-3 pb-2">
+    <div className="flex items-center justify-between">
+      <span className={`text-sm ${value ? "text-[#5B6670]" : "text-[#b5bcc2]"}`}>
+        {formatDateForDisplay(value)}
+      </span>
+      <img
+        src="/images/Calendario.png"
+        alt="Calendario"
+        className="h-4 w-4 object-contain"
+      />
+    </div>
+  </div>
+  <div className="h-[1px] bg-[#5B6670] w-full" />
+</button>
 
       {open && (
         <div className="absolute left-0 top-[10px] z-50 w-[230px] rounded-xl bg-white p-5 shadow-lg">

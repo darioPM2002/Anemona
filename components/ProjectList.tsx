@@ -122,6 +122,8 @@ export default function ProjectList() {
 
   sessionStorage.setItem("chat_user_id", loggedUserId);
   sessionStorage.setItem("chat_session_id", project.session_id);
+  sessionStorage.setItem("project_folio", String(project.folio)); 
+  sessionStorage.setItem("project_name", project.nombreproyecto);
 
   if (project.id_firestore_document) {
     sessionStorage.setItem("project_id", project.id_firestore_document);
@@ -134,6 +136,7 @@ export default function ProjectList() {
     sessionId: project.session_id,
     projectId: project.id_firestore_document ?? "",
     folio: project.folio,
+    nombreproyecto: project.nombreproyecto
   };
 
   sessionStorage.setItem("suppress_ers_highlight", "1");
@@ -235,7 +238,8 @@ Así estaba antes din el botón de log out
             return (
               <div
                 key={project.folio}
-                onClick={() => handleOpenProjectChat(project)}
+                onClick={() => handleOpenProjectChat(project)
+                }
                 className={`flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition
                 ${isSelected ? "bg-gray-300 shadow-inner" : "hover:bg-gray-200"}
                 `}

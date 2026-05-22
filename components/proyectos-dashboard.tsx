@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { API_URL } from "@/services/api";
 import CustomDatePicker from "@/components/CustomDatePicker"
+import TextInput from "@/components/minicomponentes/TextInput";
 
 interface Proyecto {
   folio: number;
@@ -18,20 +19,9 @@ interface Proyecto {
 
 export default function ProyectosDashboard() {
 
-  const [idusuario, setIdUsuario] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("idusuario")?.trim() || null;
-  });
-
-  const [nombre, setNombre] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("nombre");
-  });
-
-  const [apellidopaterno, setapellidopaterno] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("apellidopaterno");
-  });
+  const [idusuario, setIdUsuario] = useState<string | null>(null);
+  const [nombre, setNombre] = useState<string | null>(null);
+  const [apellidopaterno, setapellidopaterno] = useState<string | null>(null);
 
 
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
@@ -173,6 +163,12 @@ export default function ProyectosDashboard() {
   };
 
   useEffect(() => {
+    setIdUsuario(localStorage.getItem("idusuario")?.trim() || null);
+    setNombre(localStorage.getItem("nombre"));
+    setapellidopaterno(localStorage.getItem("apellidopaterno"));
+  }, []);
+
+  useEffect(() => {
     if (!idusuario) return;
 
     setLoading(true);
@@ -265,46 +261,40 @@ export default function ProyectosDashboard() {
 
         <div className="flex flex-col gap-3">
           <div>
-            <label className="mb-1 block text-xs text-gray-500">Folio</label>
-            <input
-              type="text"
-              placeholder="3254673026"
+            <TextInput
               value={filtroFolio}
-              onChange={(e) => setFiltroFolio(e.target.value)}
-              className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-[#EB0029]"
+              onChange={setFiltroFolio}
+              placeholder="3254673026"
+              label="Folio"
+              labelVariant="light"
             />
           </div>
 
+          <TextInput
+            value={filtroNombre}
+            onChange={setFiltroNombre}
+            placeholder="ProyectoIA"
+            label="Nombre de Proyecto"
+            labelVariant="light"
+
+          />
           <div>
-            <label className="mb-1 block text-xs text-gray-500">Nombre de Proyecto</label>
-            <input
-              type="text"
-              placeholder="ProyectoIA"
-              value={filtroNombre}
-              onChange={(e) => setFiltroNombre(e.target.value)}
-              className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-[#EB0029]"
-            />
-          </div>
-
-         <div>
-          <label className="mb-1 block text-xs text-gray-500">Fecha</label>
+            <label className="mb-1 block text-xs text-gray-500">Fecha</label>
             <CustomDatePicker
               value={filtroFecha}
               onChange={setFiltroFecha}
             />
 
-        </div>
-
-          <div>
-            <label className="mb-1 block text-xs text-gray-500">Área</label>
-            <input
-              type="text"
-              placeholder="TI"
-              value={filtroArea}
-              onChange={(e) => setFiltroArea(e.target.value)}
-              className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-[#EB0029]"
-            />
           </div>
+
+          <TextInput
+            value={filtroArea}
+            onChange={setFiltroArea}
+            placeholder="TI"
+            label="Área"
+            labelVariant="light"
+
+          />
         </div>
 
         <button
@@ -314,17 +304,17 @@ export default function ProyectosDashboard() {
           Limpiar
         </button>
 
-      <button
-      onClick={() => setShowAIModal(true)}
-      className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-gray-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-600"
-    >
-      <img
-        src="/images/Buscar.png"
-        alt="Buscar con IA"
-        className="h-4 w-4 object-contain"
-      />
-      <span>Buscar con IA</span>
-    </button>
+        <button
+          onClick={() => setShowAIModal(true)}
+          className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-gray-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-600"
+        >
+          <img
+            src="/images/Buscar.png"
+            alt="Buscar con IA"
+            className="h-4 w-4 object-contain"
+          />
+          <span>Buscar con IA</span>
+        </button>
 
         {/* Logo */}
         <div className="mt-auto flex justify-center pt-4">

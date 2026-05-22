@@ -106,46 +106,46 @@ export default function LoginScreen() {
             </h1>
 
             <div style={{ marginBottom: "1rem" }}>
-              <input
-                type="email"
-                placeholder="Correo Electrónico"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "14px 16px",
-                  borderRadius: 8,
-                  border: "none",
-                  borderBottom: "2px solid #ccc",
-                  background: "#f5f5f5",
-                  fontSize: 15,
-                  outline: "none",
-                  color: "#111",
-                }}
-              />
-            </div>
+  <div style={{ background: "#f5f5f5", padding: "12px 16px 8px" }}>
+    <input
+      type="email"
+      placeholder="Correo Electrónico"
+      value={email}
+      onChange={(e) => setEmail(e.target.value)}
+      style={{
+        width: "100%",
+        boxSizing: "border-box",
+        border: "none",
+        background: "transparent",
+        fontSize: 14,
+        outline: "none",
+        color: "#5B6670",
+      }}
+    />
+  </div>
+  <div style={{ height: 1, background: "#5B6670" }} />
+</div>
 
             <div style={{ marginBottom: "1.5rem" }}>
-              <input
-                type="password"
-                placeholder="Contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "14px 16px",
-                  borderRadius: 8,
-                  border: "none",
-                  borderBottom: "2px solid #ccc",
-                  background: "#f5f5f5",
-                  fontSize: 15,
-                  outline: "none",
-                  color: "#111",
-                }}
-              />
-            </div>
+  <div style={{ background: "#f5f5f5", padding: "12px 16px 8px" }}>
+    <input
+      type="password"
+      placeholder="Contraseña"
+      value={password}
+      onChange={(e) => setPassword(e.target.value)}
+      style={{
+        width: "100%",
+        boxSizing: "border-box",
+        border: "none",
+        background: "transparent",
+        fontSize: 14,
+        outline: "none",
+        color: "#5B6670",
+      }}
+    />
+  </div>
+  <div style={{ height: 1, background: "#5B6670" }} />
+</div>
 
             {error !== "" && (
               <p style={{ color: "#EB0029", fontSize: 13, marginBottom: "1rem" }}>

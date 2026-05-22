@@ -12,11 +12,13 @@ type TooltipPosition = "top" | "bottom" | "left" | "right";
 interface HelpTooltipProps {
   text: string;
   position?: TooltipPosition;
+  gifSrc?: string; // para que supporte un gif 
 }
 
 export default function HelpTooltip({
   text,
   position = "top",
+  gifSrc,
 }: HelpTooltipProps) {
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
@@ -118,7 +120,7 @@ export default function HelpTooltip({
               left: coords.left,
               transform: tooltipTransform[position],
               zIndex: 999999,
-              width: "220px",
+              width: gifSrc ? "280px" : "220px",
               background: "#fff",
               border: "1px solid #e2e8f0",
               borderRadius: "8px",
@@ -131,6 +133,13 @@ export default function HelpTooltip({
               fontFamily: "system-ui, sans-serif",
             }}
           >
+            {gifSrc && (                          // ← agrega esto
+              <img
+                src={gifSrc}
+                alt="demo"
+                style={{ width: "100%", borderRadius: "6px", marginBottom: "8px", display: "block" }}
+              />
+            )}
             {text}
           </span>,
           document.body

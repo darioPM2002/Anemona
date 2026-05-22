@@ -235,10 +235,21 @@ export default function ChatBot() {
           method: "POST",
           headers: { Authorization: `Bearer ${getToken()}` },
         });
-      } catch { }
+      } catch { /* el lock expira solo */ }
     }, 2 * 60 * 1000);
   }, [stopHeartbeat]);
 
+  const releaseProject = useCallback(async (folio: number) => {
+    stopHeartbeat();
+    try {
+      await fetch(`${API_URL}/proyectos/${folio}/lock`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getToken()}` },
+        keepalive: true, // funciona aunque la pestaña esté cerrándose
+      });
+    } catch { /* el lock expira solo a los 15 min */ }
+  }, [stopHeartbeat]);
+ 
   const lockProject = useCallback(async (folio: number) => {
     try {
       const res = await fetch(`${API_URL}/proyectos/${folio}/lock`, {
@@ -247,7 +258,7 @@ export default function ChatBot() {
       });
 
       if (res.ok) {
-        setLockedBy(false);
+        setLockedBy(false); 
         startHeartbeat(folio);
         return;
       }
@@ -258,8 +269,8 @@ export default function ChatBot() {
         setLockedBy(info ?? { idusuario: "?", nombre: "otro usuario" });
         return;
       }
-
-      // Libre para no bloquear innecesariamente con cualquier otro error dejar
+ 
+      //Libre para no bloquear innecesariamente con cualquier otro error dejar
       console.warn("[Lock] Respuesta inesperada:", res.status);
       setLockedBy(false);
     } catch (e) {
@@ -268,17 +279,6 @@ export default function ChatBot() {
     }
   }, [startHeartbeat]);
 
-  // Pedir lock cuando tengamos folio y userId
-  useEffect(() => {
-    if (!projectFolio || !userId) return;
-
-    setLockedBy(null);
-    lockProject(projectFolio);
-
-    return () => {
-      releaseProject(projectFolio);
-    };
-  }, [projectFolio, userId]);
 
   // Liberar al cerrar o recargar pestaña
   useEffect(() => {
@@ -295,32 +295,21 @@ export default function ChatBot() {
     return () => window.removeEventListener("beforeunload", handleUnload);
   }, []);
 
-
+  // chatBlocked = true solo cuando otro usuario tiene el lock
   const chatBlocked = lockedBy !== null && lockedBy !== false;
-
-  const releaseProject = useCallback(async (folio: number) => {
-    stopHeartbeat();
-    try {
-      await fetch(`${API_URL}/proyectos/${folio}/lock`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${getToken()}` },
-        keepalive: true,
-      });
-    } catch { } // El lock expira solo a los 15 min
-  }, [stopHeartbeat]);
 
 
 
   // ─── Carga de sesión con sync remoto ────────────────────────────────────────
 
-  const loadSessionData = async (nextUserId: string, nextSessionId: string) => {
-    console.log(`[ChatBot] Cargando sesión user_id=${nextUserId} session_id=${nextSessionId}`);
-
+  const loadSessionData = async (nextUserId: string, nextSessionId: string, nextFolio?: number) => {
+    console.log(`[ChatBot] Cargando sesión user_id=${nextUserId} session_id=${nextSessionId} folio=${nextFolio}`);
+ 
     setUserId(nextUserId);
     setSessionId(nextSessionId);
     setTempUserId(nextUserId);
     setShowLoginModal(false);
-    checkPermiso(nextUserId, nextSessionId); // ← esta línea falta
+    checkPermiso(nextUserId, nextSessionId);
 
     const savedInput = localStorage.getItem(getInputKey(nextSessionId));
     setInput(savedInput || "");
@@ -353,6 +342,20 @@ export default function ChatBot() {
       localStorage.setItem(getMessagesKey(nextSessionId), JSON.stringify(synced));
       console.log(`[ChatBot] Sync: ${synced.length - cachedMessages.length} mensaje(s) nuevo(s) agregado(s)`);
     }
+ 
+    const folioParaLock = nextFolio ?? Number(sessionStorage.getItem("project_folio") ?? "0");
+    if (folioParaLock) {
+      setLockedBy(null); // mostrar estado verificando mientras llega la respuesta
+ 
+      // Liberar el lock del proyecto anterior si cambió
+      const folioAnterior = Number(sessionStorage.getItem("project_folio_anterior") ?? "0");
+      if (folioAnterior && folioAnterior !== folioParaLock) {
+        releaseProject(folioAnterior);
+      }
+      sessionStorage.setItem("project_folio_anterior", String(folioParaLock));
+ 
+      lockProject(folioParaLock);
+    }
   };
 
   // ─── Efectos ─────────────────────────────────────────────────────────────────
@@ -363,9 +366,16 @@ export default function ChatBot() {
       const { userId: u, sessionId: s, projectId, folio, nombreproyecto } = e.detail ?? {};
       if (!u || !s) return;
       if (projectId) sessionStorage.setItem("project_id", projectId);
-      if (folio) setProjectFolio(folio);
-      if (nombreproyecto) setProjectName(nombreproyecto);
-      loadSessionData(u, s);
+      if (folio) {
+        setProjectFolio(folio);
+        sessionStorage.setItem("project_folio", String(folio));
+      }
+      if (nombreproyecto) {
+        setProjectName(nombreproyecto);
+        sessionStorage.setItem("project_name", nombreproyecto);
+      }
+      setLockedBy(null);
+      loadSessionData(u, s, folio);
     };
     window.addEventListener("chat-session-changed", handleSessionChanged);
     return () => window.removeEventListener("chat-session-changed", handleSessionChanged);
@@ -379,7 +389,8 @@ export default function ChatBot() {
     const savedFolio = sessionStorage.getItem("project_folio");
     const savedName = sessionStorage.getItem("project_name");
     if (savedUserId && savedSessionId) {
-      loadSessionData(savedUserId, savedSessionId);
+
+      loadSessionData(savedUserId, savedSessionId, savedFolio ? Number(savedFolio) : undefined);
     } else {
       setShowLoginModal(true);
     }
@@ -399,22 +410,24 @@ export default function ChatBot() {
   }, [input, localChatReady, sessionId]);
 
   useEffect(() => {
-    if (userId && sessionId && !showLoginModal)
+    if (userId && sessionId && !showLoginModal && !chatBlocked)
       setTimeout(() => inputRef.current?.focus(), 0);
-  }, [userId, sessionId, showLoginModal]);
-
+  }, [userId, sessionId, showLoginModal, chatBlocked]);
+ 
   useEffect(() => {
-    if (!loadingMessage && userId && sessionId && !showLoginModal)
+    if (!loadingMessage && userId && sessionId && !showLoginModal && !chatBlocked)
       setTimeout(() => inputRef.current?.focus(), 0);
-  }, [loadingMessage, userId, sessionId, showLoginModal]);
+  }, [loadingMessage, userId, sessionId, showLoginModal, chatBlocked]);
 
   // ─── Handlers ────────────────────────────────────────────────────────────────
 
   function handleProjectCreated() {
     const savedUserId = sessionStorage.getItem("chat_user_id");
     const savedSessionId = sessionStorage.getItem("chat_session_id");
+    const savedFolioPC = sessionStorage.getItem("project_folio");
     if (savedUserId && savedSessionId) {
-      loadSessionData(savedUserId, savedSessionId);
+
+      loadSessionData(savedUserId, savedSessionId, savedFolioPC ? Number(savedFolioPC) : undefined);
       if (!localStorage.getItem(getMessagesKey(savedSessionId)))
         setMessages([{ id: 1, role: "bot", text: "Proyecto y sesión creados. Ya puedes chatear." }]);
     }
@@ -451,6 +464,7 @@ export default function ChatBot() {
   }
 
   async function send() {
+    if (chatBlocked) return;
     const text = input.trim();
     if (!text || !userId || !sessionId || loadingMessage) return;
 
@@ -458,7 +472,6 @@ export default function ChatBot() {
     activeBotIdRef.current = null;
     lastEventRef.current = null;
 
-    // Guardar timestamp del mensaje del usuario para futuros merges
     const userTimestamp = Date.now() / 1000;
     setMessages((prev) => [...prev, { id: userMsgId, role: "user", text, isNew: true, timestamp: userTimestamp }]);
     setInput("");
@@ -543,9 +556,7 @@ export default function ChatBot() {
               setIsThinking(false);
               window.dispatchEvent(new CustomEvent("ers-refresh"));
             }
-          } catch {
-            // línea incompleta, ignorar
-          }
+          } catch { }
         }
       }
     } catch (error) {
@@ -701,6 +712,7 @@ export default function ChatBot() {
             )}
           </div>
 
+          //Banner de bloqueo
           {chatBlocked && typeof lockedBy === "object" && lockedBy && (
             <div className="mx-4 mt-3 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex-shrink-0">
               <Lock size={15} className="mt-0.5 flex-shrink-0 text-amber-600" />
@@ -750,10 +762,10 @@ export default function ChatBot() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); send(); } }}
-                placeholder={chatBlocked 
-                  ? "Chat en uso por otro usuario..." 
-                  :userId && sessionId ? "Escribe tu pregunta..." 
-                  :"Primero inicia sesión"
+                placeholder={
+                  chatBlocked ? "Chat en uso por otro usuario..." :
+                  userId && sessionId ? "Escribe tu pregunta..." :
+                  "Primero inicia sesión"
                 }
                 disabled={!userId || !sessionId || chatBlocked}
                 className="w-full rounded-2xl bg-white px-5 pr-14 py-4 text-sm shadow outline-none focus:ring-2 focus:ring-[#EB0029]/30 disabled:bg-gray-200 disabled:cursor-not-allowed"
@@ -769,16 +781,20 @@ export default function ChatBot() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Widgets deshabilitado cuando otro usuario tiene el lock */}
               <button
-                onClick={() => window.dispatchEvent(new CustomEvent("open-widgets-modal"))}
+                onClick={() => {
+                  if (chatBlocked) return;
+                  window.dispatchEvent(new CustomEvent("open-widgets-modal"));
+                }}
                 disabled={chatBlocked}
                 className="bg-[#EB0029] text-white font-semibold text-sm px-5 py-3 rounded-lg hover:bg-red-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#EB0029]"
               >
                 <LayoutDashboard size={20} />
                 Widgets
               </button>
-
             </div>
+ 
             <HelpTooltip
               text="Aquí puedes agregar, editar y personalizar las secciones y widgets de la plantilla según las necesidades de tu proyecto."
               position="right"
@@ -794,7 +810,6 @@ export default function ChatBot() {
           onClose={() => setShowLoginModal(false)}
           onSubmit={handleProjectCreated}
         />
-
 
         <ProjectSettingsModal
           isOpen={showSettingsModal}

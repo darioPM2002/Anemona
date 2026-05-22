@@ -15,7 +15,7 @@ type Msg = {
   text: string;
   tool?: string;
   isNew?: boolean;
-  timestamp?: number; // ← nuevo: para merge con historial remoto
+  timestamp?: number;
 };
 
 type HistoryEvent = {
@@ -26,7 +26,7 @@ type HistoryEvent = {
 
 type LockInfo = {
   idusuario: string;
-  nombre: string
+  nombre: string;
 };
 
 type LockState = LockInfo | null | false;
@@ -201,7 +201,10 @@ export default function ChatBot() {
 
   useEffect(() => {
     console.log("CHATBOT MONTADO");
-    return () => { console.log("CHATBOT DESMONTADO"); };
+    return () => { 
+      console.log("CHATBOT DESMONTADO");
+      stopHeartbeat(); 
+    };
   }, []);
 
   const getMessagesKey = (s: string) => `agent-chat-messages:${s}`;
@@ -235,7 +238,7 @@ export default function ChatBot() {
           method: "POST",
           headers: { Authorization: `Bearer ${getToken()}` },
         });
-      } catch { /* el lock expira solo */ }
+      } catch {}
     }, 2 * 60 * 1000);
   }, [stopHeartbeat]);
 
@@ -247,7 +250,7 @@ export default function ChatBot() {
         headers: { Authorization: `Bearer ${getToken()}` },
         keepalive: true, // funciona aunque la pestaña esté cerrándose
       });
-    } catch { /* el lock expira solo a los 15 min */ }
+    } catch {}
   }, [stopHeartbeat]);
  
   const lockProject = useCallback(async (folio: number) => {
@@ -323,9 +326,7 @@ export default function ChatBot() {
       try {
         const parsed: Msg[] = JSON.parse(savedMessages);
         if (parsed.length > 0) cachedMessages = parsed;
-      } catch {
-        // usar default
-      }
+      } catch { /* usar default */}
     }
 
     const maxIdCached = Math.max(...cachedMessages.map((m) => m.id), 0);
@@ -345,7 +346,7 @@ export default function ChatBot() {
  
     const folioParaLock = nextFolio ?? Number(sessionStorage.getItem("project_folio") ?? "0");
     if (folioParaLock) {
-      setLockedBy(null); // mostrar estado verificando mientras llega la respuesta
+      setLockedBy(null); // mostrar estado "verificando" mientras llega la respuesta
  
       // Liberar el lock del proyecto anterior si cambió
       const folioAnterior = Number(sessionStorage.getItem("project_folio_anterior") ?? "0");
@@ -556,7 +557,7 @@ export default function ChatBot() {
               setIsThinking(false);
               window.dispatchEvent(new CustomEvent("ers-refresh"));
             }
-          } catch { }
+          } catch { /* línea incompleta, ignorar */ }
         }
       }
     } catch (error) {

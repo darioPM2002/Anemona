@@ -712,7 +712,7 @@ export default function ChatBot() {
             )}
           </div>
 
-          //Banner de bloqueo
+          {/* ── Banner de bloqueo ── */}
           {chatBlocked && typeof lockedBy === "object" && lockedBy && (
             <div className="mx-4 mt-3 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex-shrink-0">
               <Lock size={15} className="mt-0.5 flex-shrink-0 text-amber-600" />

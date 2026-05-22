@@ -215,6 +215,7 @@ const [projectName, setProjectName] = useState(() => {
     setSessionId(nextSessionId);
     setTempUserId(nextUserId);
     setShowLoginModal(false);
+    checkPermiso(nextUserId, nextSessionId); // ← esta línea falta
 
     const savedInput = localStorage.getItem(getInputKey(nextSessionId));
     setInput(savedInput || "");

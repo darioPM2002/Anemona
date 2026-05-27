@@ -49,6 +49,24 @@ export default function ProjectList() {
   }, []);
 
   useEffect(() => {
+  const interval = setInterval(() => {
+    const pendingFolio = sessionStorage.getItem("pending_selected_folio");
+    
+    if (pendingFolio && projects.length > 0) {
+      const folio = Number(pendingFolio);
+      const exists = projects.find(p => p.folio === folio);
+      
+      if (exists) {
+        setSelectedId(folio);
+        sessionStorage.removeItem("pending_selected_folio");
+      }
+    }
+  }, 300);
+
+  return () => clearInterval(interval);
+}, [projects]);
+
+  useEffect(() => {
     if (!idusuario) return;
 
     const fetchProjects = async () => {
@@ -65,7 +83,7 @@ export default function ProjectList() {
 
 
         const data = await res.json();
-        setProjects(data);
+        setProjects(Array.isArray(data) ? data : data.proyectos ?? []);
         console.log("PROJECTS:", data);
       } catch (error) {
         console.error("Error cargando proyectos:", error);
@@ -91,6 +109,42 @@ export default function ProjectList() {
       setSelectedId(selectedProject.folio);
     }
   }, [searchParams, projects]);
+
+  useEffect(() => {
+  const handleProjectCreated = async (e: Event) => {
+  const folio = (e as CustomEvent).detail?.folio;
+  
+  // Leer directo de localStorage, no del estado
+  const userId = localStorage.getItem("idusuario")?.trim();
+  
+  if (!userId) return;
+
+  try {
+    const res = await fetch(`${API_URL}/usuarios/${userId}/proyectos`);
+    if (!res.ok) throw new Error("Error");
+
+    const data = await res.json();
+    const nuevosProyectos = Array.isArray(data) ? data : data.proyectos ?? [];
+
+    setProjects(nuevosProyectos);
+
+    if (folio) {
+      setSelectedId(Number(folio));
+    }
+  } catch (error) {
+    console.error("Error:", error);
+  }
+};
+
+  window.addEventListener("project-created", handleProjectCreated);
+
+  return () => {
+    window.removeEventListener(
+      "project-created",
+      handleProjectCreated
+    );
+  };
+}, [idusuario]);
 
   // Botón PROVICIONAL de logout para limpiar el localStorage y redirigir al login
   const handleLogout = () => {
@@ -158,7 +212,7 @@ if (pathname === "/dashboard") {
 }
 };
 
-  const orderedProjects = [...projects].sort((a, b) => {
+  const orderedProjects = [...(Array.isArray(projects) ? projects : [])].sort((a, b) => {
     if (a.folio === selectedId) return -1;
     if (b.folio === selectedId) return 1;
     return 0;
@@ -227,7 +281,7 @@ Así estaba antes din el botón de log out
           <div className="text-sm text-gray-400 text-center mt-4">
             Cargando proyectos...
           </div>
-        ) : projects.length === 0 ? (
+        ) : orderedProjects.length === 0 ? (
           <div className="text-sm text-gray-400 text-center mt-4">
             No hay proyectos para este usuario.
           </div>
@@ -235,6 +289,10 @@ Así estaba antes din el botón de log out
           orderedProjects.map((project) => {
             const isSelected = selectedId === project.folio;
 
+            console.log("selectedId:", selectedId, typeof selectedId);
+            console.log("project.folio:", project.folio, typeof project.folio);
+            console.log("isSelected:", isSelected);
+                               
             return (
               <div
                 key={project.folio}

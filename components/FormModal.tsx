@@ -573,12 +573,18 @@ export default function FormModal({
       );
 
       sessionStorage.setItem(
-        "project_name", 
-        payload.formulario.nombre_iniciativa ?? ""
+        "project_name",
+        payload.formulario.nombre_iniciativa ?? "",
+      );
+
+      window.dispatchEvent(
+        new CustomEvent("project-created", {
+          detail: { folio: data.folio },
+        }),
       );
 
       setTempUserId(payload.formulario.usuario_id ?? "");
-
+      sessionStorage.setItem("pending_selected_folio", String(data.folio));
       onSubmit();
     } catch (error) {
       console.error(error);

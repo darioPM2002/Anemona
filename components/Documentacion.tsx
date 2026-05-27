@@ -450,7 +450,7 @@ window.removeEventListener("document-project-change", handleProjectChange);
                             }}
                           >
                             {/* Preview en vista colapsada: sin registrar descarga */}
-                          <ArquitecturaDiagram />
+                          <ArquitecturaDiagram key={activeDocId} />
                         </div>
                       )}
                       <button
@@ -566,9 +566,10 @@ window.removeEventListener("document-project-change", handleProjectChange);
                   >
                     {/* Vista expandida: registrar la función de descarga PDF */}
                     <ArquitecturaDiagram
-                      onRegisterDownload={(fn) => {
-                        arqDownloadRef.current = fn;
-                      }}
+                    key={activeDocId}
+                    onRegisterDownload={(fn) => {
+                      arqDownloadRef.current = fn;
+                    }}
                     />
                   </div>
                 )}

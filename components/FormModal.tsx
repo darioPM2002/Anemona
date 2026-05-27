@@ -274,7 +274,7 @@ export default function FormModal({
               {
                 "id": "bloque_2",
                 "tipo": "parrafo",
-                "texto": " "
+                "texto": "NULL"
               }
             ]
           },
@@ -294,11 +294,21 @@ export default function FormModal({
                 "tipo": "subtitulo",
                 "texto": "Objetivo"
               },
-              {
+               {
                 "id": "bloque_2",
+                "tipo": "parrafo",
+                "texto": "NULL"
+              },
+              {
+                "id": "bloque_3",
                 "tipo": "subtitulo",
                 "texto": "Alcance"
               },
+               {
+                "id": "bloque_4",
+                "tipo": "parrafo",
+                "texto": "NULL"
+              }
             ]
           },
         },
@@ -316,7 +326,7 @@ export default function FormModal({
           campos: {
             filas:
               [
-                { AREA_NEGOCIO: "Área de negocio", IMPACTOS: "Proceso o actividad impactada" },
+                { AREA_NEGOCIO: "NULL", IMPACTOS: "NULL" },
               ],
           },
         },
@@ -402,6 +412,11 @@ export default function FormModal({
                 "tipo": "subtitulo",
                 "texto": "Otros Beneficios"
               },
+                 {
+                "id": "bloque_4",
+                "tipo": "parrafo",
+                "texto": "NULL"
+              }
             ]
           },
         },

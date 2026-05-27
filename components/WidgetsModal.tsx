@@ -141,27 +141,25 @@ useEffect(() => {
     const docId = sessionStorage.getItem("project_id") || "";
     if (!docId) { alert("No hay proyecto activo"); return; }
 
-
     setSaving(true);
     try {
-
       const payload = docWidgets.map(({ _isNew, ...w }) => {
-  if (w.id_widget !== "w_006") return w;
+        if (w.id_widget !== "w_006") return w;
 
-  const bloquesLimpios = Array.isArray(w.campos?.bloques)
-    ? w.campos.bloques.filter((bloque: any) => {
-        return String(bloque?.texto ?? "").trim() !== "";
-      })
-    : [];
+        const bloquesLimpios = Array.isArray(w.campos?.bloques)
+          ? w.campos.bloques.filter((bloque: any) => {
+              return String(bloque?.texto ?? "").trim() !== "";
+            })
+          : [];
 
-  return {
-    ...w,
-    campos: {
-      ...w.campos,
-      bloques: bloquesLimpios,
-    },
-  };
-});
+        return {
+          ...w,
+          campos: {
+            ...w.campos,
+            bloques: bloquesLimpios,
+          },
+        };
+      });
       console.log("💾 GUARDANDO PLANTILLA:");
       console.log(JSON.stringify(payload, null, 2)); // <- usa payload
 
@@ -175,25 +173,41 @@ useEffect(() => {
       );
 
       if (!res.ok) {
-  const errorText = await res.text();
-  console.error("❌ Error backend al guardar:", res.status, errorText);
-  throw new Error("Error al guardar");
-}
+        const errorText = await res.text();
+        console.error("❌ Error backend al guardar:", res.status, errorText);
+        throw new Error("Error al guardar");
+      }
 
       setDocWidgets(
-  payload.map((w) => ({
-    ...w,
-    _isNew: false,
-  }))
-);
+        payload.map((w) => ({
+          ...w,
+          _isNew: false,
+        }))
+      );
 
+      // --- ENVÍA EL MENSAJE AL AGENTE AQUÍ ---
+      const userId = sessionStorage.getItem("chat_user_id");
+      const sessionId = sessionStorage.getItem("chat_session_id");
+      if (userId && sessionId) {
+        await fetch(`${API_URL}/agent/query/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            session_id: sessionId,
+            message: "Lee la plantilla actualizada y responde únicamente con: OK",
+          }),
+        }).catch((e) => {
+          console.error("No se pudo notificar al agente:", e);
+        });
+      }
+      // ---------------------------------------
 
-      // Al guardar exitosamente, quita el resaltado amarillo
       setShowSuccess(true);
-      const projectId = sessionStorage.getItem("project_id");// local storage de la primera vez que le pico a la plantilla
-      localStorage.setItem(`plantilla_guardada_${projectId}`, "true"); // local storage de la primera vez que le pico a la plantilla
+      const projectId = sessionStorage.getItem("project_id");
+      localStorage.setItem(`plantilla_guardada_${projectId}`, "true");
       setMostrarAyuda(false);
-      window.dispatchEvent(new CustomEvent("ers-refresh")); // <- agrega esto
+      window.dispatchEvent(new CustomEvent("ers-refresh"));
     } catch (e) {
       console.error(e);
       setShowError(true);

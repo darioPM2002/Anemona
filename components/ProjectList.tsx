@@ -56,8 +56,8 @@ export default function ProjectList() {
         setLoading(true);
 
         const res = await fetch(
-          `${API_URL}/usuarios/${idusuario}/proyectos`
-        );
+        `${API_URL}/usuarios/${idusuario}/proyectos?skip=0&limit=6`
+      );
 
         if (!res.ok) {
           throw new Error("No se pudieron obtener los proyectos");
@@ -284,7 +284,7 @@ Así estaba antes din el botón de log out
           onClick={() => router.push("/proyectos-dashboard")}
           className="bg-[#EB0029] text-white font-semibold text-sm px-8 py-3 rounded-lg hover:bg-red-700 transition"
         >
-          Ver Todos
+          Todos Mis Proyectos
         </button>
       </div>
 

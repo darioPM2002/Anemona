@@ -56,8 +56,8 @@ export default function ProjectList() {
         setLoading(true);
 
         const res = await fetch(
-          `${API_URL}/usuarios/${idusuario}/proyectos`
-        );
+        `${API_URL}/usuarios/${idusuario}/proyectos?skip=0&limit=6`
+      );
 
         if (!res.ok) {
           throw new Error("No se pudieron obtener los proyectos");
@@ -65,7 +65,7 @@ export default function ProjectList() {
 
 
         const data = await res.json();
-        setProjects(data);
+        setProjects(data.proyectos ?? []);
         console.log("PROJECTS:", data);
       } catch (error) {
         console.error("Error cargando proyectos:", error);
@@ -158,7 +158,7 @@ if (pathname === "/dashboard") {
 }
 };
 
-  const orderedProjects = [...projects].sort((a, b) => {
+  const orderedProjects = [...(projects ?? [])].sort((a, b) => {
     if (a.folio === selectedId) return -1;
     if (b.folio === selectedId) return 1;
     return 0;
@@ -275,7 +275,7 @@ Así estaba antes din el botón de log out
           onClick={() => router.push("/proyectos-dashboard")}
           className="bg-[#EB0029] text-white font-semibold text-sm px-8 py-3 rounded-lg hover:bg-red-700 transition"
         >
-          Ver Todos
+          Todos Mis Proyectos
         </button>
       </div>
 

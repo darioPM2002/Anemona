@@ -283,7 +283,20 @@ if (!isOpen) return null;
         <img src="/images/RedBob.png" className="absolute -top-16 -right-10 w-52 pointer-events-none select-none z-0" alt="" />
         <img src="/images/GreyBob.png" className="absolute top-1/2 -right-10 -translate-y-1/2 w-36 pointer-events-none select-none z-0" alt="" />
 
-        <button onClick={onClose} className="absolute top-4 right-5 z-10 rounded-md px-2 py-1 text-gray-400 hover:bg-gray-100 hover:text-black transition text-lg">✕</button>
+<button
+  onClick={onClose}
+  disabled={saving}
+  className={`absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center rounded-lg transition
+    ${saving
+      ? "text-gray-300 cursor-not-allowed"
+      : "text-gray-400 hover:bg-gray-100 hover:text-black"
+    }`}
+>
+  {saving
+    ? <span className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+    : <span className="text-lg leading-none">✕</span>
+  }
+</button>
 
         <div className="relative z-10 flex space-x-6 h-full">
 

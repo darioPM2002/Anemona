@@ -65,8 +65,17 @@ export default function ProjectList() {
 
 
         const data = await res.json();
-        setProjects(data);
-        console.log("PROJECTS:", data);
+console.log("PROJECTS:", data);
+
+const proyectosArray = Array.isArray(data)
+  ? data
+  : Array.isArray(data.proyectos)
+    ? data.proyectos
+    : Array.isArray(data.projects)
+      ? data.projects
+      : [];
+
+setProjects(proyectosArray);
       } catch (error) {
         console.error("Error cargando proyectos:", error);
         setProjects([]);
@@ -158,7 +167,7 @@ if (pathname === "/dashboard") {
 }
 };
 
-  const orderedProjects = [...projects].sort((a, b) => {
+  const orderedProjects = [...(Array.isArray(projects) ? projects : [])].sort((a, b) => {
     if (a.folio === selectedId) return -1;
     if (b.folio === selectedId) return 1;
     return 0;

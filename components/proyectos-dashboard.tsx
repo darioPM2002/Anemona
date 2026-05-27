@@ -15,6 +15,8 @@ interface Proyecto {
   departamento: string;
   session_id: string;
   id_firestore_document?: string;
+  permiso?: string; // solo el owner puede borrar proyectos
+  isOwner?: boolean; // solo el owner puede borrar proyectos
 }
 
 export default function ProyectosDashboard() {
@@ -115,9 +117,14 @@ export default function ProyectosDashboard() {
     router.push(`/dashboard?session=${project.session_id}`);
   };
 
-  const abrirConfirmacionEliminar = (folio: number) => {
-    setFolioAEliminar(folio);
-  };
+  const abrirConfirmacionEliminar = (proyecto: Proyecto) => {
+  if (!proyecto.isOwner) {
+    alert("No tienes permiso para eliminar este proyecto.");
+    return;
+  }
+
+  setFolioAEliminar(proyecto.folio);
+};
 
   const cerrarConfirmacionEliminar = () => {
     if (eliminando) return;
@@ -168,6 +175,22 @@ export default function ProyectosDashboard() {
     setapellidopaterno(localStorage.getItem("apellidopaterno"));
   }, []);
 
+  const checkPermisoProyecto = async (uid: string, sid: string) => {
+  try {
+    const res = await fetch(`${API_URL}/colaboracion/session/${sid}/permiso/${uid}`);
+
+    if (!res.ok) {
+      return false;
+    }
+
+    const data = await res.json();
+    return data.permiso === "OWNER";
+  } catch (error) {
+    console.error("Error verificando permiso del proyecto:", error);
+    return false;
+  }
+};
+
   useEffect(() => {
     if (!idusuario) return;
 
@@ -180,10 +203,21 @@ export default function ProyectosDashboard() {
         );
 
         const data = await res.json();
-        console.log("DATA:", data);
+console.log("DATA:", data);
 
-        setProyectos(data);
-        setProyectosOriginales(data);
+const proyectosConPermiso = await Promise.all(
+  data.map(async (proyecto: Proyecto) => {
+    const isOwner = await checkPermisoProyecto(idusuario, proyecto.session_id);
+
+    return {
+      ...proyecto,
+      isOwner,
+    };
+  })
+);
+
+setProyectos(proyectosConPermiso);
+setProyectosOriginales(proyectosConPermiso);
       } catch (error) {
         console.error(error);
       } finally {
@@ -354,21 +388,23 @@ export default function ProyectosDashboard() {
                     {proyecto.nombreproyecto}
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      abrirConfirmacionEliminar(proyecto.folio);
-                    }}
-                    className="ml-auto flex h-9 w-9 items-center justify-center rounded-full border-2 border-gray-200 transition hover:border-gray-300 hover:bg-gray-100"
-                    title="Eliminar proyecto"
-                  >
-                    <img
-                      src="/images/BasureroA.png"
-                      alt="Eliminar proyecto"
-                      className="h-9 w-9 object-contain"
-                    />
-                  </button>
+                  {proyecto.isOwner && (
+  <button
+    type="button"
+    onClick={(e) => {
+      e.stopPropagation();
+      abrirConfirmacionEliminar(proyecto);
+    }}
+    className="ml-auto flex h-9 w-9 items-center justify-center rounded-full border-2 border-gray-200 transition hover:border-gray-300 hover:bg-gray-100"
+    title="Eliminar proyecto"
+  >
+    <img
+      src="/images/BasureroA.png"
+      alt="Eliminar proyecto"
+      className="h-9 w-9 object-contain"
+    />
+  </button>
+)}
                 </div>
 
                 <p className="truncate text-sm font-normal text-gray-500">

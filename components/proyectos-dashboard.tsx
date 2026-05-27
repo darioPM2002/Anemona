@@ -14,6 +14,8 @@ interface Proyecto {
   departamento: string;
   session_id: string;
   id_firestore_document?: string;
+  permiso?: string; // solo el owner puede borrar proyectos
+  isOwner?: boolean; // solo el owner puede borrar proyectos
 }
 
 export default function ProyectosDashboard() {
@@ -115,7 +117,14 @@ export default function ProyectosDashboard() {
     router.push(`/dashboard?session=${project.session_id}`);
   };
 
-  const abrirConfirmacionEliminar = (folio: number) => setFolioAEliminar(folio);
+  const abrirConfirmacionEliminar = (proyecto: Proyecto) => {
+    if (!proyecto.isOwner) {
+      alert("No tienes permiso para eliminar este proyecto.");
+      return;
+    }
+
+    setFolioAEliminar(proyecto.folio);
+  };
 
   const cerrarConfirmacionEliminar = () => {
     if (eliminando) return;
@@ -146,6 +155,22 @@ export default function ProyectosDashboard() {
     setapellidopaterno(localStorage.getItem("apellidopaterno"));
   }, []);
 
+  const checkPermisoProyecto = async (uid: string, sid: string) => {
+    try {
+      const res = await fetch(`${API_URL}/colaboracion/session/${sid}/permiso/${uid}`);
+
+      if (!res.ok) {
+        return false;
+      }
+
+      const data = await res.json();
+      return data.permiso === "OWNER";
+    } catch (error) {
+      console.error("Error verificando permiso del proyecto:", error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (!idusuario) return;
     setLoading(true);
@@ -155,9 +180,21 @@ export default function ProyectosDashboard() {
           `${API_URL}/usuarios/${idusuario}/proyectos?skip=0&limit=${PAGE_SIZE}`
         );
         const data = await res.json();
-        setProyectos(data.proyectos ?? []);
-        setProyectosOriginales(data.proyectos ?? []);
-        setTotalProyectos(data.total ?? 0);
+        console.log("DATA:", data);
+
+        const proyectosConPermiso = await Promise.all(
+          data.map(async (proyecto: Proyecto) => {
+            const isOwner = await checkPermisoProyecto(idusuario, proyecto.session_id);
+
+            return {
+              ...proyecto,
+              isOwner,
+            };
+          })
+        );
+
+        setProyectos(proyectosConPermiso);
+        setProyectosOriginales(proyectosConPermiso);
       } catch (error) {
         console.error(error);
       } finally {
@@ -315,99 +352,127 @@ export default function ProyectosDashboard() {
             No se encontraron proyectos con los filtros aplicados.
           </div>
         ) : (
-          /* ref en el contenedor scrolleable — se pasa como root al observer */
           <div
-            ref={scrollContainerRef}
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-1"
-          >
-            <div className="grid grid-cols-3 gap-4">
-              {proyectosFiltrados.map((proyecto) => (
-                <div
-                  key={proyecto.folio}
-                  onClick={() => handleOpenProjectChat(proyecto)}
-                  className="group cursor-pointer rounded-xl bg-white p-4 shadow-sm transition hover:shadow-md hover:ring-1 hover:ring-[#EB0029]/40"
-                >
-                  <div className="mb-2 flex items-center gap-3">
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-[#EB0029]">
-                      <FileIcon size={14} strokeWidth={2.5} className="text-white" />
-                    </div>
-                    <span className="truncate text-sm font-semibold text-gray-700">
-                      {proyecto.nombreproyecto}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); abrirConfirmacionEliminar(proyecto.folio); }}
-                      className="ml-auto flex h-9 w-9 items-center justify-center rounded-full border-2 border-gray-200 transition hover:border-gray-300 hover:bg-gray-100"
-                      title="Eliminar proyecto"
-                    >
-                      <img src="/images/BasureroA.png" alt="Eliminar proyecto" className="h-9 w-9 object-contain" />
-                    </button>
-                  </div>
-                  <p className="truncate text-sm font-normal text-gray-500">{proyecto.folio}</p>
-                  <p className="mt-1 text-xs text-gray-500">{proyecto.departamento}</p>
-                  <div className="mt-2 flex items-center gap-1 text-[11px] text-gray-400">
-                    <img src="/images/Calendario.png" alt="Fecha de creación" className="h-3.5 w-3.5 object-contain" />
-                    <span>{formatDate(proyecto.fechacreacion)}</span>
-                  </div>
+    ref={scrollContainerRef}
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-1"
+  >
+        <div className="grid grid-cols-3 gap-4">
+          {proyectosFiltrados.map((proyecto) => (
+            <div
+              key={proyecto.folio}
+              onClick={() => handleOpenProjectChat(proyecto)}
+              className="group cursor-pointer rounded-xl bg-white p-4 shadow-sm transition hover:shadow-md hover:ring-1 hover:ring-[#EB0029]/40"
+            >
+              <div className="mb-2 flex items-center gap-3">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-[#EB0029]">
+                  <FileIcon size={14} strokeWidth={2.5} className="text-white" />
                 </div>
-              ))}
-            </div>
 
-            {/* Sentinel al final del contenido scrolleable */}
-            <div ref={sentinelRef} className="mt-4 flex justify-center py-6">
-              {loadingMas && <Loader2 size={20} className="animate-spin text-[#EB0029]" />}
-            </div>
-          </div>
-        )}
-      </main>
+                <span className="truncate text-sm font-semibold text-gray-700">
+                  {proyecto.nombreproyecto}
+                </span>
 
-      {/* ── Modal eliminar ── */}
-      {folioAEliminar !== null && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="relative flex w-[400px] flex-col items-center rounded-2xl border border-gray-100 bg-white p-7 text-center shadow-2xl">
-            <button onClick={cerrarConfirmacionEliminar} className="absolute right-5 top-4 text-lg text-gray-400 hover:text-black">✕</button>
-            <div className="mb-5">
-              <img src="/images/Confirmacion.png" alt="Confirmación" className="h-14 w-14 object-contain" />
+                {proyecto.isOwner && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      abrirConfirmacionEliminar(proyecto);
+                    }}
+                    className="ml-auto flex h-9 w-9 items-center justify-center rounded-full border-2 border-gray-200 transition hover:border-gray-300 hover:bg-gray-100"
+                    title="Eliminar proyecto"
+                  >
+                    <img
+                      src="/images/BasureroA.png"
+                      alt="Eliminar proyecto"
+                      className="h-9 w-9 object-contain"
+                    />
+                  </button>
+                )}
+              </div>
+
+              <p className="truncate text-sm font-normal text-gray-500">
+                {proyecto.folio}
+              </p>
+
+              <p className="mt-1 text-xs text-gray-500">
+                {proyecto.departamento}
+              </p>
+
+              <div className="mt-2 flex items-center gap-1 text-[11px] text-gray-400">
+                <img
+                  src="/images/Calendario.png"
+                  alt="Fecha de creación"
+                  className="h-3.5 w-3.5 object-contain"
+                />
+                <span>{formatDate(proyecto.fechacreacion)}</span>
+              </div>
             </div>
-            <h2 className="mb-3 text-2xl font-bold text-gray-900">¿Estás segura?</h2>
-            <p className="mb-8 text-sm text-gray-500">Este proyecto será eliminado de forma permanente. Esta acción no se puede deshacer.</p>
-            <div className="flex w-full gap-3">
-              <button onClick={cerrarConfirmacionEliminar} disabled={eliminando} className="flex-1 rounded-xl border border-gray-300 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50">
-                Cancelar
-              </button>
-              <button onClick={confirmarEliminarProyecto} disabled={eliminando} className="flex-1 rounded-xl bg-[#EB0029] py-3 text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
-                {eliminando ? "Eliminando..." : "Eliminar"}
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
-      )}
 
-      {/* ── Modal buscar con IA ── */}
-      {showAIModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="mb-2 text-xl font-bold text-[#EB0029]">Buscar proyectos con IA</h3>
-            <p className="mb-4 text-sm text-gray-600">
-              Escribe lo que recuerdes del proyecto. Por ejemplo: proyectos de Banorte creados en abril.
-            </p>
-            <textarea
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="Ej. Busca proyectos de Banorte en abril"
-              className="h-32 w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-[#EB0029]"
-            />
-            <div className="mt-5 flex justify-end gap-3">
-              <button onClick={() => setShowAIModal(false)} disabled={loadingAI} className="rounded-lg bg-gray-500 px-5 py-2 text-white transition hover:bg-gray-600 disabled:opacity-50">
-                Cancelar
-              </button>
-              <button onClick={buscarConAgente} disabled={loadingAI || !aiPrompt.trim()} className="rounded-lg bg-[#EB0029] px-5 py-2 text-white transition hover:bg-red-700 disabled:opacity-50">
-                {loadingAI ? "Buscando..." : "Buscar"}
-              </button>
-            </div>
-          </div>
+        {/* Sentinel al final del contenido scrolleable */}
+        <div ref={sentinelRef} className="mt-4 flex justify-center py-6">
+          {loadingMas && (
+            <Loader2 size={20} className="animate-spin text-[#EB0029]" />
+          )}
         </div>
-      )}
     </div>
+  )
+}
+      </main >
+
+  {/* ── Modal eliminar ── */ }
+{
+  folioAEliminar !== null && (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/30 backdrop-blur-sm">
+      <div className="relative flex w-[400px] flex-col items-center rounded-2xl border border-gray-100 bg-white p-7 text-center shadow-2xl">
+        <button onClick={cerrarConfirmacionEliminar} className="absolute right-5 top-4 text-lg text-gray-400 hover:text-black">✕</button>
+        <div className="mb-5">
+          <img src="/images/Confirmacion.png" alt="Confirmación" className="h-14 w-14 object-contain" />
+        </div>
+        <h2 className="mb-3 text-2xl font-bold text-gray-900">¿Estás segura?</h2>
+        <p className="mb-8 text-sm text-gray-500">Este proyecto será eliminado de forma permanente. Esta acción no se puede deshacer.</p>
+        <div className="flex w-full gap-3">
+          <button onClick={cerrarConfirmacionEliminar} disabled={eliminando} className="flex-1 rounded-xl border border-gray-300 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50">
+            Cancelar
+          </button>
+          <button onClick={confirmarEliminarProyecto} disabled={eliminando} className="flex-1 rounded-xl bg-[#EB0029] py-3 text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
+            {eliminando ? "Eliminando..." : "Eliminar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+{/* ── Modal buscar con IA ── */ }
+{
+  showAIModal && (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <h3 className="mb-2 text-xl font-bold text-[#EB0029]">Buscar proyectos con IA</h3>
+        <p className="mb-4 text-sm text-gray-600">
+          Escribe lo que recuerdes del proyecto. Por ejemplo: proyectos de Banorte creados en abril.
+        </p>
+        <textarea
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value)}
+          placeholder="Ej. Busca proyectos de Banorte en abril"
+          className="h-32 w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-[#EB0029]"
+        />
+        <div className="mt-5 flex justify-end gap-3">
+          <button onClick={() => setShowAIModal(false)} disabled={loadingAI} className="rounded-lg bg-gray-500 px-5 py-2 text-white transition hover:bg-gray-600 disabled:opacity-50">
+            Cancelar
+          </button>
+          <button onClick={buscarConAgente} disabled={loadingAI || !aiPrompt.trim()} className="rounded-lg bg-[#EB0029] px-5 py-2 text-white transition hover:bg-red-700 disabled:opacity-50">
+            {loadingAI ? "Buscando..." : "Buscar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+    </div >
   );
 }

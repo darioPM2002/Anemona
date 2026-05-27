@@ -567,6 +567,16 @@ export default function FormModal({
         data.project_id ?? ""
       );
 
+      sessionStorage.setItem(
+        "project_folio", 
+        String(data.folio ?? "")
+      );
+
+      sessionStorage.setItem(
+        "project_name", 
+        payload.formulario.nombre_iniciativa ?? ""
+      );
+
       setTempUserId(payload.formulario.usuario_id ?? "");
 
       onSubmit();

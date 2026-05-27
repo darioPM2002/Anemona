@@ -181,18 +181,36 @@ useEffect(() => {
 }
 
       setDocWidgets(
-  payload.map((w) => ({
-    ...w,
-    _isNew: false,
-  }))
-);
-
+        payload.map((w) => ({
+          ...w,
+          _isNew: false,
+        }))
+      );
 
       // Al guardar exitosamente, quita el resaltado amarillo
       setShowSuccess(true);
-      const projectId = sessionStorage.getItem("project_id");// local storage de la primera vez que le pico a la plantilla
-      localStorage.setItem(`plantilla_guardada_${projectId}`, "true"); // local storage de la primera vez que le pico a la plantilla
+      const projectId = sessionStorage.getItem("project_id");
+      localStorage.setItem(`plantilla_guardada_${projectId}`, "true");
       setMostrarAyuda(false);
+
+      // NUEVO: Enviar mensaje al agente
+      const userId = sessionStorage.getItem("chat_user_id");
+      const sessionId = sessionStorage.getItem("chat_session_id");
+      if (userId && sessionId) {
+        fetch(`${API_URL}/agent/query/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            session_id: sessionId,
+            message: "Modifiqué la plantilla, lee la plantilla de nuevo y responde solo con un OK",
+          }),
+        }).catch((e) => {
+          // Opcional: puedes mostrar un toast o loggear el error
+          console.error("No se pudo notificar al agente:", e);
+        });
+      }
+
       window.dispatchEvent(new CustomEvent("ers-refresh")); // <- agrega esto
     } catch (e) {
       console.error(e);

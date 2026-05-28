@@ -23,90 +23,105 @@ type Props = {
 // 856px = área de contenido entre header y footer
 // 808px = área útil (856 - 24 paddingTop - 24 paddingBottom)
 const PAGE_CONTENT_HEIGHT = 856;
-const PAGE_PADDING_V = 54
-export const USABLE_HEIGHT = PAGE_CONTENT_HEIGHT - PAGE_PADDING_V;
+
+const CONTENT_PADDING_TOP = 24;
+const CONTENT_PADDING_BOTTOM = 80;
+
+// Zona invisible de seguridad antes del footer.
+// Si un bloque tocaría esta zona, se manda a la siguiente página.
+const PAGE_BREAK_SAFETY = 40;
+
+export const USABLE_HEIGHT =
+  PAGE_CONTENT_HEIGHT -
+  CONTENT_PADDING_TOP -
+  CONTENT_PADDING_BOTTOM -
+  PAGE_BREAK_SAFETY;
 
 export type BlockDef = {
   id: string;
-  node: React.ReactNode;
+  node?: React.ReactNode;
 };
 
 const WidgetRenderer: React.FC<Props> = ({
   widgets: initialWidgets,
   changedFields,
 }) => {
-  const [widgets, setWidgets] = useState<Widget[]>(initialWidgets);
+  const [widgets, setWidgets] = useState<Widget[]>(
+    Array.isArray(initialWidgets) ? initialWidgets : []
+  );
   const [loading, setLoading] = useState(false);
   const [pages, setPages] = useState<BlockDef[][]>([]);
   const [measured, setMeasured] = useState(false);
   const measureRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const rowRefs = useRef<{ [widgetPos: number]: (HTMLDivElement | null)[] }>({}); // ayuda al algoritmo greedy a separar por linean no widgets
+  const rowRefs = useRef<{ [widgetPos: number]: (HTMLDivElement | null)[] }>({}); // ayuda al algoritmo greedy a separar por linean no widgets del widget 005
+  const w003RowRefs = useRef<{ [widgetPos: number]: (HTMLTableRowElement | null)[] }>({});
+  const w006BlockRefs = useRef<{ [widgetPos: number]: (HTMLDivElement | null)[] }>({});
   const [showError, setShowError] = useState(false); // Pop up error al guardar plantilla
   const [showSuccess, setShowSuccess] = useState(false); // Pop up exito al guardar plantilla
   const [localChangedFields, setLocalChangedFields] = useState<Set<string>>(new Set()); // highlight 
 
   // Actualiza valores de campos sin tocar la estructura de widgets y highlightea los cambios 
   const setNestedValue = (obj: any, path: string, value: any) => {
-  const keys = path.split(".");
-  const clone = Array.isArray(obj) ? [...obj] : { ...obj };
+    const keys = path.split(".");
+    const clone = Array.isArray(obj) ? [...obj] : { ...obj };
 
-  let current = clone;
+    let current = clone;
 
-  keys.forEach((key, index) => {
-    const isLast = index === keys.length - 1;
-    const nextKey = keys[index + 1];
-    const shouldBeArray = !isNaN(Number(nextKey));
+    keys.forEach((key, index) => {
+      const isLast = index === keys.length - 1;
+      const nextKey = keys[index + 1];
+      const shouldBeArray = !isNaN(Number(nextKey));
 
-    if (isLast) {
-      current[key] = value;
-    } else {
-      const existing = current[key];
-
-      if (Array.isArray(existing)) {
-        current[key] = [...existing];
-      } else if (existing && typeof existing === "object") {
-        current[key] = { ...existing };
+      if (isLast) {
+        current[key] = value;
       } else {
-        current[key] = shouldBeArray ? [] : {};
+        const existing = current[key];
+
+        if (Array.isArray(existing)) {
+          current[key] = [...existing];
+        } else if (existing && typeof existing === "object") {
+          current[key] = { ...existing };
+        } else {
+          current[key] = shouldBeArray ? [] : {};
+        }
+
+        current = current[key];
       }
+    });
 
-      current = current[key];
-    }
-  });
+    return clone;
+  };
 
-  return clone;
-};
+  const handleChange = (posicion: number, key: string, value: any) => {
+    const path = `${posicion}.campos.${key}`;
 
-const handleChange = (posicion: number, key: string, value: any) => {
-  const path = `${posicion}.campos.${key}`;
-
-  setLocalChangedFields((prev) => {
-    const next = new Set(prev);
-    next.add(path);
-    return next;
-  });
-
-  setTimeout(() => {
     setLocalChangedFields((prev) => {
       const next = new Set(prev);
-      next.delete(path);
+      next.add(path);
       return next;
     });
-  }, 1000);
 
-  setWidgets((prev) =>
-    prev.map((w) => {
-      if (w.posicion !== posicion) return w;
+    setTimeout(() => {
+      setLocalChangedFields((prev) => {
+        const next = new Set(prev);
+        next.delete(path);
+        return next;
+      });
+    }, 1000);
 
-      return {
-        ...w,
-        campos: key.includes(".")
-          ? setNestedValue(w.campos || {}, key, value)
-          : { ...w.campos, [key]: value },
-      };
-    }),
-  );
-};
+    setWidgets((prev) =>
+      prev.map((w) => {
+        if (w.posicion !== posicion) return w;
+
+        return {
+          ...w,
+          campos: key.includes(".")
+            ? setNestedValue(w.campos || {}, key, value)
+            : { ...w.campos, [key]: value },
+        };
+      }),
+    );
+  };
 
   // Widgets ordenados por posición
   const sortedWidgets = useMemo(
@@ -182,33 +197,96 @@ const handleChange = (posicion: number, key: string, value: any) => {
         return renderWChart(widget, handleChange); //
       case "w_005":
         return renderW005(widget, handleChange, highlight);
-        case "w_006":
-      return renderW006(widget, handleChange, highlight);
+      case "w_006":
+        return renderW006(widget, handleChange, highlight);
 
       default:
         return null;
     }
   };
 
+  const getW006LineItems = (widget: Widget) => {
+    const bloques: any[] = widget.campos?.bloques ?? [];
+
+    return bloques.flatMap((block: any, blockIdx: number) => {
+      const texto = String(block.texto ?? "");
+
+      // Primero respeta saltos manuales con Enter
+      const manualLines = texto
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      // Si una línea sigue siendo muy larga, la divide en pedazos más pequeños
+      const lineasDivididas = manualLines.flatMap((line) => {
+        if (block.tipo === "subtitulo") return [line];
+
+        const maxChars = 115;
+        const partes: string[] = [];
+
+        let restante = line;
+
+        while (restante.length > maxChars) {
+          let corte = restante.lastIndexOf(" ", maxChars);
+
+          if (corte <= 0) corte = maxChars;
+
+          partes.push(restante.slice(0, corte).trim());
+          restante = restante.slice(corte).trim();
+        }
+
+        if (restante.length > 0) {
+          partes.push(restante);
+        }
+
+        return partes;
+      });
+
+      return lineasDivididas.map((linea, lineIdx) => ({
+        ...block,
+        id: `${block.id ?? blockIdx}-line-${lineIdx}`,
+        texto: linea,
+        tipo: block.tipo,
+        isContinuation: lineIdx > 0,
+      }));
+    });
+  };
+
+
   // Clave que identifica la estructura de widgets (no sus valores).
   // Solo cambia cuando se agrega/quita un widget, no cuando se edita un campo.
   // Así el reset de paginación no se dispara al escribir.
-  const widgetKeys = sortedWidgets
-    .map((w) => `${w.id_widget}-${w.posicion}`)
-    .join(",");
+
+  const paginationKey = useMemo(() => {
+    return JSON.stringify(
+      sortedWidgets.map((w) => ({
+        id_widget: w.id_widget,
+        posicion: w.posicion,
+        campos: w.campos,
+      }))
+    );
+  }, [sortedWidgets]);
+
+  const fitsInCurrentPage = (
+    currentHeight: number,
+    nextHeight: number
+  ) => {
+    return currentHeight + nextHeight <= USABLE_HEIGHT;
+  };
+  
 
   // Resetea paginación cuando cambia la estructura de widgets
   useEffect(() => {
     setMeasured(false);
     setPages([]);
-  }, [widgetKeys]);
+  }, [paginationKey]);
 
   // Sincroniza widgets internos cuando Documentacion pasa nuevos props
   // (ej: al cambiar de proyecto o recibir respuesta del chat)
   useEffect(() => {
-  setWidgets(initialWidgets);
-  setLocalChangedFields(new Set());
-}, [initialWidgets]);
+    setWidgets(Array.isArray(initialWidgets) ? initialWidgets : []);
+    setLocalChangedFields(new Set());
+  }, [initialWidgets]);
 
   // Algoritmo de paginación greedy:
   // - measureRefs[0] = párrafo introductorio
@@ -238,49 +316,237 @@ const handleChange = (posicion: number, key: string, value: any) => {
         sortedWidgets.forEach((widget, i) => {
           const h = heights[i + 1];
 
-          // W005 — partir por filas
-          if (widget.id_widget === "w_005") {
+          // W003 — partir tabla por filas
+          if (widget.id_widget === "w_003") {
             const filas: any[] = widget.campos?.filas ?? [];
-            const rowHeights = (rowRefs.current[widget.posicion] ?? []).map(
+
+            if (filas.length === 0) {
+              const block: BlockDef = {
+                id: `${widget.id_widget}-${widget.posicion}`,
+                node: renderWidget(widget),
+              };
+
+              if (!fitsInCurrentPage(currentHeight, h) && currentPage.length > 0) {
+                result.push(currentPage);
+                currentPage = [block];
+                currentHeight = h;
+              } else {
+                currentPage.push(block);
+                currentHeight += h;
+              }
+
+              return;
+            }
+            const rowHeights = (w003RowRefs.current[widget.posicion] ?? []).map(
               (el) => el?.offsetHeight ?? 0
             );
 
-            // Altura del título del widget (SubSection) — estimamos 40px
-            const TITLE_H = 40;
+            const TITLE_H = 70;
+            const HEADER_H = 34;
 
-            // Filas que van en la página actual
             let currentChunk: number[] = [];
-            let chunkHeight = TITLE_H;
-
-            const flushChunk = (isFirst: boolean) => {
-              if (currentChunk.length === 0) return;
-              const chunkFilas = currentChunk.map((idx) => filas[idx]);
-              const node = renderW005Partial(widget, chunkFilas, isFirst);
-              currentPage.push({
-                id: `${widget.id_widget}-${widget.posicion}-chunk-${currentChunk[0]}`,
-                node,
-              });
-              currentHeight += chunkHeight;
-              currentChunk = [];
-              chunkHeight = TITLE_H;
-            };
-
+            let chunkHeight = TITLE_H + HEADER_H;
             let isFirst = true;
 
+            const flushChunk = () => {
+              if (currentChunk.length === 0) return;
+
+              const chunkFilas = currentChunk.map((idx) => filas[idx]);
+
+              currentPage.push({
+                id: `${widget.id_widget}-${widget.posicion}-chunk-${currentChunk[0]}`,
+                node: renderW003Partial(widget, chunkFilas, isFirst),
+              });
+
+              currentHeight += chunkHeight;
+              currentChunk = [];
+              chunkHeight = HEADER_H;
+              isFirst = false;
+            };
+
             filas.forEach((_, rowIdx) => {
-              const rh = rowHeights[rowIdx] ?? 30;
-              if (currentHeight + chunkHeight + rh > USABLE_HEIGHT && currentChunk.length > 0) {
-                flushChunk(isFirst);
-                isFirst = false;
+              const rh = rowHeights[rowIdx] ?? 34;
+
+              if (
+                !fitsInCurrentPage(currentHeight, chunkHeight + rh) &&
+                currentChunk.length > 0
+              ) {
+                flushChunk();
                 result.push(currentPage);
                 currentPage = [];
                 currentHeight = 0;
               }
+
               currentChunk.push(rowIdx);
               chunkHeight += rh;
             });
 
-            flushChunk(isFirst);
+            flushChunk();
+            return;
+          }
+
+          // W006 — partir por bloques internos: subtítulos y párrafos
+          // W006 — partir por líneas internas
+          if (widget.id_widget === "w_006") {
+            const lineas = getW006LineItems(widget);
+
+            if (lineas.length === 0) {
+              const block: BlockDef = {
+                id: `${widget.id_widget}-${widget.posicion}`,
+                node: renderWidget(widget),
+              };
+
+              if (!fitsInCurrentPage(currentHeight, h) && currentPage.length > 0) {
+                result.push(currentPage);
+                currentPage = [block];
+                currentHeight = h;
+              } else {
+                currentPage.push(block);
+                currentHeight += h;
+              }
+
+              return;
+            }
+
+            const lineHeights = (w006BlockRefs.current[widget.posicion] ?? []).map(
+              (el) => el?.offsetHeight ?? 0
+            );
+
+            const TITLE_H = 70;
+
+            let currentChunk: number[] = [];
+            let chunkHeight = TITLE_H;
+            let isFirst = true;
+
+            const flushChunk = () => {
+              if (currentChunk.length === 0) return;
+
+              const chunkLineas = currentChunk.map((idx) => lineas[idx]);
+
+              currentPage.push({
+                id: `${widget.id_widget}-${widget.posicion}-linechunk-${currentChunk[0]}`,
+                node: renderW006Partial(widget, chunkLineas, isFirst),
+              });
+
+              currentHeight += chunkHeight;
+              currentChunk = [];
+              chunkHeight = 0;
+              isFirst = false;
+            };
+
+            lineas.forEach((_, lineIdx) => {
+              const lh = lineHeights[lineIdx] ?? 22;
+
+              // Si todavía no hay líneas en este chunk, pero el título + primera línea
+              // ya no caben en la página actual, manda el widget a una página nueva.
+              if (
+                currentChunk.length === 0 &&
+                !fitsInCurrentPage(currentHeight, chunkHeight + lh) &&
+                currentPage.length > 0
+              ) {
+                result.push(currentPage);
+                currentPage = [];
+                currentHeight = 0;
+              }
+
+              // Si ya hay líneas en el chunk y la siguiente ya no cabe,
+              // corta aquí y continúa en la siguiente página.
+              if (
+                currentChunk.length > 0 &&
+                !fitsInCurrentPage(currentHeight, chunkHeight + lh)
+              ) {
+                flushChunk();
+                result.push(currentPage);
+                currentPage = [];
+                currentHeight = 0;
+              }
+
+              currentChunk.push(lineIdx);
+              chunkHeight += lh;
+            });
+
+            flushChunk();
+            return;
+          }
+
+          // W005 — partir por filas completas, sin dividir celdas internas
+          if (widget.id_widget === "w_005") {
+            const filas: any[] = widget.campos?.filas ?? [];
+
+            if (filas.length === 0) {
+              const block: BlockDef = {
+                id: `${widget.id_widget}-${widget.posicion}`,
+                node: renderWidget(widget),
+              };
+
+              if (!fitsInCurrentPage(currentHeight, h) && currentPage.length > 0) {
+                result.push(currentPage);
+                currentPage = [block];
+                currentHeight = h;
+              } else {
+                currentPage.push(block);
+                currentHeight += h;
+              }
+
+              return;
+            }
+
+            const rowHeights = (rowRefs.current[widget.posicion] ?? []).map(
+              (el) => el?.offsetHeight ?? 0
+            );
+
+            const TITLE_H = 40;
+
+            let currentChunk: number[] = [];
+            let chunkHeight = TITLE_H;
+            let isFirst = true;
+
+            const flushChunk = () => {
+              if (currentChunk.length === 0) return;
+
+              const chunkFilas = currentChunk.map((idx) => filas[idx]);
+
+              currentPage.push({
+                id: `${widget.id_widget}-${widget.posicion}-chunk-${currentChunk[0]}`,
+                node: renderW005Partial(widget, chunkFilas, isFirst),
+              });
+
+              currentHeight += chunkHeight;
+              currentChunk = [];
+              chunkHeight = 0;
+              isFirst = false;
+            };
+
+            filas.forEach((_, rowIdx) => {
+              const rh = rowHeights[rowIdx] ?? 30;
+
+              // Si el título + primera fila ya no caben, empieza este widget en nueva página
+              if (
+                currentChunk.length === 0 &&
+                !fitsInCurrentPage(currentHeight, chunkHeight + rh) &&
+                currentPage.length > 0
+              ) {
+                result.push(currentPage);
+                currentPage = [];
+                currentHeight = 0;
+              }
+
+              // Si ya hay filas y la siguiente no cabe, corta antes de esa fila
+              if (
+                currentChunk.length > 0 &&
+                !fitsInCurrentPage(currentHeight, chunkHeight + rh)
+              ) {
+                flushChunk();
+                result.push(currentPage);
+                currentPage = [];
+                currentHeight = 0;
+              }
+
+              currentChunk.push(rowIdx);
+              chunkHeight += rh;
+            });
+
+            flushChunk();
             return;
           }
 
@@ -292,7 +558,8 @@ const handleChange = (posicion: number, key: string, value: any) => {
             id: `${widget.id_widget}-${widget.posicion}`,
             node: null,
           };
-          if (currentHeight + h > USABLE_HEIGHT && currentPage.length > 0) {
+
+          if (!fitsInCurrentPage(currentHeight, h) && currentPage.length > 0) {
             result.push(currentPage);
             currentPage = [block];
             currentHeight = h;
@@ -311,6 +578,120 @@ const handleChange = (posicion: number, key: string, value: any) => {
     return () => cancelAnimationFrame(raf);
   }, [sortedWidgets, measured]);
 
+  const renderW003Partial = (
+    widget: Widget,
+    filasParciales: any[],
+    showTitle: boolean
+  ) => {
+    const campos = widget.campos || {};
+
+    const defaultHeaders = campos.filas?.[0]
+      ? Object.keys(campos.filas[0]).map((k: string) => ({ key: k, label: k }))
+      : [
+        { key: "TIPO", label: "Riesgo" },
+        { key: "PROBABLE_PERDIDA", label: "Probable Pérdida" },
+        { key: "JUSTIFICACION", label: "Justificación" },
+      ];
+
+    const headers = campos.headers || defaultHeaders;
+    const titulo = campos.titulo || widget.titulo || "Riesgos";
+
+    return (
+      <div className="mb-8">
+        {showTitle && (
+          <div className="mb-4 mt-5 flex items-center gap-2">
+            <span className="flex items-center gap-1 text-[18px]">
+              {widget.posicion}
+              <span className="font-semibold">{titulo}</span>.
+            </span>
+            <span className="text-[11px] text-red-600">(Opcional)</span>
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <table className="mb-8 w-full border border-black text-[13px]">
+            <thead>
+              <tr className="bg-[#133b73] text-white">
+                {headers.map((h: any) => (
+                  <th key={h.key} className="border px-3 py-1 min-w-[120px]">
+                    {h.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody>
+              {filasParciales.length ? (
+                filasParciales.map((fila: any, rowIdx: number) => (
+                  <tr key={rowIdx}>
+                    {headers.map((h: any) => (
+                      <td key={h.key} className="border px-2 py-1 align-top">
+                        {fila[h.key] ?? ""}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={headers.length}
+                    className="border text-center py-2 text-gray-400"
+                  >
+                    N/A
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderW006Partial = (
+    widget: Widget,
+    bloquesParciales: any[],
+    showTitle: boolean
+  ) => {
+    const campos = widget.campos || {};
+    const titulo = campos.titulo || widget.titulo || "Título de la sección";
+
+    return (
+      <div className="mb-8">
+        {showTitle && (
+          <div className="mb-4 mt-6">
+            <div className="flex items-start gap-3 border-t-2 border-black pt-2 w-full">
+              <span className="text-[18px] shrink-0">{widget.posicion}.</span>
+              <div className="flex-1 min-w-0">
+                <span className="font-bold text-[18px]">{titulo}</span>
+              </div>
+              <span className="text-[11px] shrink-0 ml-2 mt-1 text-red-600">
+                (Opcional)
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col">
+          {bloquesParciales.map((block: any, index: number) => (
+            <div key={block.id || index} className="mb-2">
+              <div
+                className={
+                  block.tipo === "subtitulo"
+                    ? "font-bold text-[14px] text-black"
+                    : `text-[13px] italic text-[#1d5da8] leading-snug ${block.isContinuation ? "pl-4" : ""
+                    }`
+                }
+              >
+                {block.texto}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderW005Partial = (widget: Widget, filas: any[], showTitle: boolean) => {
     const titulo = widget.campos?.titulo || widget.titulo || "";
     return (
@@ -328,7 +709,10 @@ const handleChange = (posicion: number, key: string, value: any) => {
             <div
               key={rowIdx}
               className="flex w-full"
-              style={{ borderBottom: rowIdx < filas.length - 1 ? "1px solid black" : "none" }}
+              style={{
+                borderBottom:
+                  rowIdx < filas.length - 1 ? "1px solid black" : "none",
+              }}
             >
               {fila.celdas.map((cel: any, celIdx: number) => (
                 <div
@@ -342,7 +726,9 @@ const handleChange = (posicion: number, key: string, value: any) => {
                   {cel.label && cel.label !== "" && (
                     <div className="text-[11px] text-gray-500">{cel.label}</div>
                   )}
-                  <div className={cel.bold ? "font-bold" : ""}>{cel.valor || ""}</div>
+                  <div className={cel.bold ? "font-bold" : ""}>
+                    {cel.valor || ""}
+                  </div>
                 </div>
               ))}
             </div>
@@ -418,6 +804,50 @@ const handleChange = (posicion: number, key: string, value: any) => {
               {renderWidget(widget)}
             </div>
           ))}
+
+          {/* Medición de filas individuales de W003 */}
+          {sortedWidgets
+            .filter((w) => w.id_widget === "w_003")
+            .map((widget) => {
+              const campos = widget.campos || {};
+              const filas = campos.filas ?? [];
+
+              const defaultHeaders = campos.filas?.[0]
+                ? Object.keys(campos.filas[0]).map((k: string) => ({ key: k, label: k }))
+                : [
+                  { key: "TIPO", label: "Riesgo" },
+                  { key: "PROBABLE_PERDIDA", label: "Probable Pérdida" },
+                  { key: "JUSTIFICACION", label: "Justificación" },
+                ];
+
+              const headers = campos.headers || defaultHeaders;
+
+              if (!w003RowRefs.current[widget.posicion]) {
+                w003RowRefs.current[widget.posicion] = [];
+              }
+
+              return (
+                <table key={`w003-rows-${widget.posicion}`} className="w-full text-[13px]">
+                  <tbody>
+                    {filas.map((fila: any, rowIdx: number) => (
+                      <tr
+                        key={rowIdx}
+                        ref={(el) => {
+                          w003RowRefs.current[widget.posicion][rowIdx] = el;
+                        }}
+                      >
+                        {headers.map((h: any) => (
+                          <td key={h.key} className="px-2 py-1 align-top">
+                            {fila[h.key] ?? ""}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+            })}
+
 
           {/* Medición de filas individuales de W005 */}
           {sortedWidgets
@@ -499,8 +929,8 @@ const handleChange = (posicion: number, key: string, value: any) => {
             style={{
               height: "856px",
               overflow: "hidden",
-              paddingTop: "24px",
-              paddingBottom: "24px",
+              paddingTop: `${CONTENT_PADDING_TOP}px`,
+              paddingBottom: `${CONTENT_PADDING_BOTTOM}px`,
               paddingLeft: "47px",
               paddingRight: "51px",
               boxSizing: "border-box",
@@ -626,6 +1056,6 @@ const handleChange = (posicion: number, key: string, value: any) => {
       )}
     </div>
   );
-};;
+};
 
 export default WidgetRenderer;

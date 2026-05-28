@@ -14,6 +14,8 @@ interface Proyecto {
   departamento: string;
   session_id: string;
   id_firestore_document?: string;
+  id_owner?: string;
+  permiso?: string;
   permiso?: string; // solo el owner puede borrar proyectos
   isOwner?: boolean; // solo el owner puede borrar proyectos
 }
@@ -53,6 +55,7 @@ export default function ProyectosDashboard() {
   const [filtroNombre, setFiltroNombre] = useState("");
   const [filtroFecha, setFiltroFecha] = useState("");
   const [filtroArea, setFiltroArea] = useState("");
+  
 
   const hayFiltros = !!(filtroFolio || filtroNombre || filtroFecha || filtroArea);
 
@@ -107,8 +110,14 @@ export default function ProyectosDashboard() {
 
   const handleOpenProjectChat = (project: Proyecto) => {
     const loggedUserId = localStorage.getItem("idusuario")?.trim() || "";
-    sessionStorage.setItem("chat_user_id", loggedUserId);
+    const chatUserId = project.id_owner ?? loggedUserId;
+    sessionStorage.setItem("logged_user_id", loggedUserId);
+    sessionStorage.setItem("chat_user_id", chatUserId);
     sessionStorage.setItem("chat_session_id", project.session_id);
+    sessionStorage.setItem("project_folio", String(project.folio));
+    sessionStorage.setItem("project_name", project.nombreproyecto);
+    sessionStorage.setItem("logged_user_id", loggedUserId);
+
     if (project.id_firestore_document) {
       sessionStorage.setItem("project_id", project.id_firestore_document);
     } else {

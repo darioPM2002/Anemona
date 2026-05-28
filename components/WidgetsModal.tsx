@@ -45,26 +45,42 @@ export default function WidgetsModal({ isOpen, onClose, widgets, onWidgetsChange
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [draggingWidget, setDraggingWidget] = useState<(typeof widgetList)[number] | null>(null);
   const [saving, setSaving] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false); // PopUp nuevo success
-  // ID del último widget añadido por drag — se resalta en amarillo hasta guardar
-  //const [newWidgetIndices, setNewWidgetIndices] = useState<Set<number>>(new Set());
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  // Para drag and drop de reordenamiento en el panel izquierdo
   const [draggingDocIndex, setDraggingDocIndex] = useState<number | null>(null);
   const [reorderDropIndex, setReorderDropIndex] = useState<number | null>(null);
-  const [deleteIndex, setDeleteIndex] = useState<number | null>(null); // pop up confirmación de borrado de widget 
-  const [showError, setShowError] = useState(false); // pop up error al guardar plantilla
-  const [mostrarAyuda, setMostrarAyuda] = useState(false) // widget inical de ayuda
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  const [showError, setShowError] = useState(false);
+  const [mostrarAyuda, setMostrarAyuda] = useState(false);
 
+  // ── Estados para subir a biblioteca ────────────────────────────────────
+  const [showBibliotecaModal, setShowBibliotecaModal] = useState(false);
+  const [bibliotecaNombre, setBibliotecaNombre] = useState("");
+  const [bibliotecaSlug, setBibliotecaSlug] = useState("");
+  const [bibliotecaConfirm, setBibliotecaConfirm] = useState("");
+  const [savingBiblioteca, setSavingBiblioteca] = useState(false);
+  const [showBibliotecaSuccess, setShowBibliotecaSuccess] = useState(false);
+  const [showBibliotecaError, setShowBibliotecaError] = useState<string | null>(null);
 
-useEffect(() => {
-  if (isOpen) {
-    setDocWidgets(widgets);
-    const projectId = sessionStorage.getItem("project_id");
-    const yaGuardo = localStorage.getItem(`plantilla_guardada_${projectId}`); // sabe la primera vez que le pico a guardar plantilla
-    setMostrarAyuda(!yaGuardo);
-  }
-}, [isOpen]);
+  useEffect(() => {
+    if (isOpen) {
+      setDocWidgets(widgets);
+      const projectId = sessionStorage.getItem("project_id");
+      const yaGuardo = localStorage.getItem(`plantilla_guardada_${projectId}`);
+      setMostrarAyuda(!yaGuardo);
+    }
+  }, [isOpen]);
+
+  // Auto-genera el slug a partir del nombre
+  useEffect(() => {
+    const slug = bibliotecaNombre
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "");
+    setBibliotecaSlug(slug);
+  }, [bibliotecaNombre]);
 
   function handleChange(index: number, key: string, value: any) {
     setDocWidgets((prev) => {
@@ -79,10 +95,8 @@ useEffect(() => {
     });
   }
 
-  // Inserta widget del panel derecho en posición exacta
   function handleDrop(insertAtIndex: number) {
     if (!draggingWidget) return;
-
     const newWidget: DocWidget = {
       posicion: insertAtIndex,
       id_widget: draggingWidget.id_widget,
@@ -94,28 +108,23 @@ useEffect(() => {
         )
       ),
       campos: { ...draggingWidget.campos } as Record<string, any>,
-      _isNew: true, // <- agrega esto
+      _isNew: true,
     };
-    // borra el setNewWidgetIndices que viene después
-
     setDocWidgets((prev) => {
       const next = [...prev];
       next.splice(insertAtIndex, 0, newWidget);
       return next.map((w, i) => ({ ...w, posicion: i }));
     });
-
     setDraggingWidget(null);
     setDropIndex(null);
   }
 
-  // Reordena widgets del panel izquierdo
   function handleReorderDrop(targetIndex: number) {
     if (draggingDocIndex === null || draggingDocIndex === targetIndex) {
       setDraggingDocIndex(null);
       setReorderDropIndex(null);
       return;
     }
-
     setDocWidgets((prev) => {
       const next = [...prev];
       const [moved] = next.splice(draggingDocIndex, 1);
@@ -123,8 +132,6 @@ useEffect(() => {
       next.splice(adjustedTarget, 0, moved);
       return next.map((w, i) => ({ ...w, posicion: i }));
     });
-
-
     setDraggingDocIndex(null);
     setReorderDropIndex(null);
   }
@@ -140,28 +147,15 @@ useEffect(() => {
   async function handleSave() {
     const docId = sessionStorage.getItem("project_id") || "";
     if (!docId) { alert("No hay proyecto activo"); return; }
-
     setSaving(true);
     try {
       const payload = docWidgets.map(({ _isNew, ...w }) => {
         if (w.id_widget !== "w_006") return w;
-
         const bloquesLimpios = Array.isArray(w.campos?.bloques)
-          ? w.campos.bloques.filter((bloque: any) => {
-              return String(bloque?.texto ?? "").trim() !== "";
-            })
+          ? w.campos.bloques.filter((bloque: any) => String(bloque?.texto ?? "").trim() !== "")
           : [];
-
-        return {
-          ...w,
-          campos: {
-            ...w.campos,
-            bloques: bloquesLimpios,
-          },
-        };
+        return { ...w, campos: { ...w.campos, bloques: bloquesLimpios } };
       });
-      console.log("💾 GUARDANDO PLANTILLA:");
-      console.log(JSON.stringify(payload, null, 2)); // <- usa payload
 
       const res = await fetch(
         `${API_URL}/widgets/modificar/${encodeURIComponent(docId)}`,
@@ -172,20 +166,10 @@ useEffect(() => {
         }
       );
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("❌ Error backend al guardar:", res.status, errorText);
-        throw new Error("Error al guardar");
-      }
+      if (!res.ok) throw new Error("Error al guardar");
 
-      setDocWidgets(
-        payload.map((w) => ({
-          ...w,
-          _isNew: false,
-        }))
-      );
+      setDocWidgets(payload.map((w) => ({ ...w, _isNew: false })));
 
-      // --- ENVÍA EL MENSAJE AL AGENTE AQUÍ ---
       const userId = sessionStorage.getItem("chat_user_id");
       const sessionId = sessionStorage.getItem("chat_session_id");
       if (userId && sessionId) {
@@ -197,11 +181,8 @@ useEffect(() => {
             session_id: sessionId,
             message: "Lee la plantilla actualizada y responde únicamente con: OK",
           }),
-        }).catch((e) => {
-          console.error("No se pudo notificar al agente:", e);
-        });
+        }).catch((e) => console.error("No se pudo notificar al agente:", e));
       }
-      // ---------------------------------------
 
       setShowSuccess(true);
       const projectId = sessionStorage.getItem("project_id");
@@ -215,88 +196,110 @@ useEffect(() => {
       setSaving(false);
     }
   }
-  // POP UP ERROR AL GUARDAR PLANTILLA 
+
+  // ── Subir plantilla a la biblioteca ────────────────────────────────────
+  async function handleSubirBiblioteca() {
+    if (!bibliotecaSlug || !bibliotecaNombre) return;
+    setSavingBiblioteca(true);
+    try {
+      const widgetsLimpios = docWidgets.map(({ _isNew, ...w }) => {
+        if (w.id_widget !== "w_006") return w;
+        const bloquesLimpios = Array.isArray(w.campos?.bloques)
+          ? w.campos.bloques.filter((b: any) => String(b?.texto ?? "").trim() !== "")
+          : [];
+        return { ...w, campos: { ...w.campos, bloques: bloquesLimpios } };
+      });
+
+      const res = await fetch(`${API_URL}/plantillas/${bibliotecaSlug}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: bibliotecaNombre,
+          widgets: widgetsLimpios,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.detail || `Error ${res.status}`);
+      }
+
+      setShowBibliotecaModal(false);
+      setBibliotecaNombre("");
+      setBibliotecaConfirm("");
+      setShowBibliotecaSuccess(true);
+    } catch (e) {
+      console.error(e);
+      setShowBibliotecaError(
+        e instanceof Error ? e.message : "No se pudo subir la plantilla."
+      );
+    } finally {
+      setSavingBiblioteca(false);
+    }
+  }
+
+  // ── Popups globales ─────────────────────────────────────────────────────
+
   if (showError) return (
-  <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
-    <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-[520px] p-10 flex flex-col items-center text-center">
-      <button
-        onClick={() => setShowError(false)}
-        className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg"
-      >✕</button>
-
-      <div className="mb-5">
-        <img src="/images/Error.png" alt="Error" className="w-20 h-20 object-contain" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
+      <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-[520px] p-10 flex flex-col items-center text-center">
+        <button onClick={() => setShowError(false)} className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg">✕</button>
+        <div className="mb-5"><img src="/images/Error.png" alt="Error" className="w-20 h-20 object-contain" /></div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-3">Error al guardar</h2>
+        <p className="text-gray-500 text-sm mb-8">No se pudo guardar la plantilla. Por favor intenta de nuevo.</p>
+        <button onClick={() => setShowError(false)} className="bg-[#EB0029] text-white px-16 py-3 rounded-xl font-semibold text-base hover:opacity-90 transition">Aceptar</button>
       </div>
-
-      <h2 className="text-2xl font-bold text-gray-900 mb-3">Error al guardar</h2>
-      <p className="text-gray-500 text-sm mb-8">No se pudo guardar la plantilla. Por favor intenta de nuevo.</p>
-
-      <button
-        onClick={() => setShowError(false)}
-        className="bg-[#EB0029] text-white px-16 py-3 rounded-xl font-semibold text-base hover:opacity-90 transition"
-      >
-        Aceptar
-      </button>
     </div>
-  </div>
-);
+  );
 
-  // POP UP EXITOSO AL GUARDAR PLANTILLA 
   if (showSuccess) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
       <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-[520px] p-10 flex flex-col items-center text-center">
-        <button
-          onClick={() => setShowSuccess(false)}
-          className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg"
-        >✕</button>
-
-        {/* Ícono */}
-
-        <div className="mb-5">
-          <img src="/images/OpExitosa.png" alt="Operación exitosa" className="w-20 h-20 object-contain" />
-        </div>
-
+        <button onClick={() => setShowSuccess(false)} className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg">✕</button>
+        <div className="mb-5"><img src="/images/OpExitosa.png" alt="Operación exitosa" className="w-20 h-20 object-contain" /></div>
         <h2 className="text-2xl font-bold text-gray-900 mb-3">Plantilla guardada</h2>
         <p className="text-gray-500 text-sm mb-2">Tu plantilla ha sido guardada exitosamente el día:</p>
         <p className="text-gray-800 font-bold text-base mb-8">
           {new Date().toLocaleDateString("es-MX", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })
             .replace(/^\w/, c => c.toUpperCase())}
         </p>
-
-        <button
-          onClick={() => setShowSuccess(false)}
-          className="bg-[#EB0029] text-white px-16 py-3 rounded-xl font-semibold text-base hover:opacity-90 transition"
-        >
-          Confirmar
-        </button>
+        <button onClick={() => setShowSuccess(false)} className="bg-[#EB0029] text-white px-16 py-3 rounded-xl font-semibold text-base hover:opacity-90 transition">Confirmar</button>
       </div>
     </div>
   );
-if (!isOpen) return null;
 
-  // Determina si un widget es el recién añadido (amarillo)
-  // Usamos el índice del último elemento añadido como proxy
+  if (showBibliotecaSuccess) return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
+      <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-[520px] p-10 flex flex-col items-center text-center">
+        <button onClick={() => setShowBibliotecaSuccess(false)} className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg">✕</button>
+        <div className="mb-5"><img src="/images/OpExitosa.png" alt="Operación exitosa" className="w-20 h-20 object-contain" /></div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-3">¡Plantilla publicada!</h2>
+        <p className="text-gray-500 text-sm mb-2">La plantilla fue agregada a la biblioteca y estará disponible al crear nuevos proyectos.</p>
+        <button onClick={() => setShowBibliotecaSuccess(false)} className="bg-[#EB0029] text-white px-16 py-3 rounded-xl font-semibold text-base hover:opacity-90 transition mt-6">Aceptar</button>
+      </div>
+    </div>
+  );
+
+  if (!isOpen) return null;
+
+  const confirmValido = bibliotecaConfirm.trim().toLowerCase() === "estoy seguro";
 
   return (
-   <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30 p-4">
-  <div className="relative w-full max-w-[1300px] h-full max-h-[800px] rounded-2xl bg-white shadow-2xl border border-gray-100 overflow-hidden flex flex-col p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30 p-4">
+      <div className="relative w-full max-w-[1300px] h-full max-h-[800px] rounded-2xl bg-white shadow-2xl border border-gray-100 overflow-hidden flex flex-col p-8">
         <img src="/images/RedBob.png" className="absolute -top-16 -right-10 w-52 pointer-events-none select-none z-0" alt="" />
         <img src="/images/GreyBob.png" className="absolute top-1/2 -right-10 -translate-y-1/2 w-36 pointer-events-none select-none z-0" alt="" />
 
-<button
-  onClick={onClose}
-  disabled={saving}
-  className={`absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center rounded-lg transition
-    ${saving
-      ? "text-gray-300 cursor-not-allowed"
-      : "text-gray-400 hover:bg-gray-100 hover:text-black"
-    }`}
->
-  {saving
-    ? <span className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
-    : <span className="text-lg leading-none">✕</span>
-  }
-</button>
+        <button
+          onClick={onClose}
+          disabled={saving}
+          className={`absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center rounded-lg transition
+            ${saving ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:bg-gray-100 hover:text-black"}`}
+        >
+          {saving
+            ? <span className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+            : <span className="text-lg leading-none">✕</span>}
+        </button>
 
         <div className="relative z-10 flex space-x-6 h-full">
 
@@ -307,13 +310,37 @@ if (!isOpen) return null;
                 <h2 className="text-2xl font-bold text-[#EB0029]">Modifica tu plantilla</h2>
                 <p className="text-sm text-gray-400 mt-0.5">Arrastra widgets para añadir o reordenar y guarda los cambios</p>
               </div>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="bg-[#EB0029] text-white px-6 py-2 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saving ? "Guardando..." : "Guardar plantilla"}
-              </button>
+
+              {/* ── Botones cabecera ── */}
+              <div className="flex items-center gap-3">
+                {/* Agregar a biblioteca */}
+                <button
+                  onClick={() => {
+                    setBibliotecaNombre("");
+                    setBibliotecaConfirm("");
+                    setShowBibliotecaError(null);
+                    setShowBibliotecaModal(true);
+                  }}
+                  disabled={saving}
+                  className="flex items-center gap-2 border border-[#EB0029] text-[#EB0029] px-5 py-2 rounded-xl font-semibold hover:bg-red-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Publicar esta plantilla en la biblioteca"
+                >
+                  {/* Icono estantería */}
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m-8-8h16" />
+                  </svg>
+                  Agregar a biblioteca
+                </button>
+
+                {/* Guardar plantilla */}
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="bg-[#EB0029] text-white px-6 py-2 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving ? "Guardando..." : "Guardar plantilla"}
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 rounded-3xl bg-[#ececec] overflow-auto border-2 border-dashed border-blue-200">
@@ -346,7 +373,6 @@ if (!isOpen) return null;
                       realización.
                     </p>
 
-                    {/* Drop zone para nuevo widget antes del primero */}
                     <DropZone
                       index={0}
                       isActive={dropIndex === 0}
@@ -362,12 +388,10 @@ if (!isOpen) return null;
 
                       return (
                         <div key={`${widget.posicion}-${i}`}>
-                          {/* Indicador de reordenamiento */}
                           {isReorderTarget && (
                             <div className="h-1 bg-blue-500 rounded my-1 transition-all" />
                           )}
 
-                          {/* Cápsula — amarilla si es nuevo, azul si ya existía */}
                           <div
                             draggable
                             onDragStart={() => setDraggingDocIndex(i)}
@@ -378,29 +402,21 @@ if (!isOpen) return null;
                             }}
                             onDrop={(e) => { e.preventDefault(); handleReorderDrop(i); }}
                             className={`relative rounded-xl border-2 mb-2 cursor-grab active:cursor-grabbing transition-all
-                              ${isNew
-                                ? "border-yellow-400 bg-yellow-50/40"
-                                : "border-blue-300 bg-blue-50/20"
-                              }
+                              ${isNew ? "border-yellow-400 bg-yellow-50/40" : "border-blue-300 bg-blue-50/20"}
                               ${draggingDocIndex === i ? "opacity-40 scale-[0.98]" : ""}
                             `}
                           >
-                            {/* Badge título */}
                             <div className={`absolute -top-3 left-4 text-white text-[10px] font-semibold px-3 py-[2px] rounded-full shadow-sm z-10
-      ${isNew ? "bg-yellow-500" : "bg-blue-500"}
-    `}>
+                              ${isNew ? "bg-yellow-500" : "bg-blue-500"}`}>
                               {widget.titulo}
                               {isNew && <span className="ml-1 opacity-75">· unsaved</span>}
                             </div>
 
-                            {/* Icono drag */}
                             <div className="absolute top-2 right-3 text-gray-300 text-sm select-none">⠿</div>
 
-                            {/* Botón eliminar */}
                             <button
                               onClick={(e) => { e.stopPropagation(); setDeleteIndex(i); }}
                               className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-[#EB0029] flex items-center justify-center shadow-sm z-10 transition"
-
                               title="Eliminar widget"
                             >
                               <span className="text-white text-sm font-bold leading-none mb-[1px]">−</span>
@@ -409,10 +425,8 @@ if (!isOpen) return null;
                             <div className="pt-5 px-2 pb-2">
                               {renderWidgetNode(widget, (posicion, key, value) => handleChange(i, key, value))}
                             </div>
-
                           </div>
 
-                          {/* Drop zone para nuevo widget (desde panel derecho) */}
                           <DropZone
                             index={i + 1}
                             isActive={dropIndex === i + 1}
@@ -459,103 +473,173 @@ if (!isOpen) return null;
             </div>
 
             <div className="flex-1 rounded-3xl bg-[#f9f9f9] p-4 flex flex-col gap-4 overflow-auto">
-
               {mostrarAyuda && (
-  <div className="relative rounded-xl bg-white border-2 border-blue-300 shadow-sm">
-    <div className="flex items-center gap-2 px-4 py-2 border-b border-blue-100 bg-blue-50 rounded-t-xl">
-      <span className="text-sm font-semibold text-blue-700">¿Cómo usar los widgets?</span>
-    </div>
-    <div className="p-3 flex flex-col gap-2">
-      <img
-        src="/images/dragndrop.gif"
-        alt="demo"
-        className="w-full rounded-md"
-      />
-      <p className="text-xs text-gray-500 leading-relaxed">
-        Arrastra el widget de tu preferencia a la plantilla y suéltalo cuando aparezca "Suelta aquí".
-      </p>
-    </div>
-  </div>
-)}
+                <div className="relative rounded-xl bg-white border-2 border-blue-300 shadow-sm">
+                  <div className="flex items-center gap-2 px-4 py-2 border-b border-blue-100 bg-blue-50 rounded-t-xl">
+                    <span className="text-sm font-semibold text-blue-700">¿Cómo usar los widgets?</span>
+                  </div>
+                  <div className="p-3 flex flex-col gap-2">
+                    <img src="/images/dragndrop.gif" alt="demo" className="w-full rounded-md" />
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      Arrastra el widget de tu preferencia a la plantilla y suéltalo cuando aparezca "Suelta aquí".
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {widgetList.map((widget) => (
-                <div
-                  key={`widget-${widget.posicion}`}
-                  className="relative"
-                >
-      {/* Tooltip afuera de la tarjeta */}
-      {widget.info && (
-        <div className="absolute -top-2 -right-2 z-50">
-          <HelpTooltip
-            text={widget.info}
-            position="left"
-          />
-        </div>
-      )}
-
-      <div
-        draggable
-        onDragStart={() => {
-          setDraggingWidget(widget);
-          setDraggingDocIndex(null);
-        }}
-        onDragEnd={() => {
-          setDraggingWidget(null);
-          setDropIndex(null);
-        }}
-        className={`w-full rounded-xl bg-white border shadow-sm cursor-grab active:cursor-grabbing select-none transition overflow-hidden
-          ${
-            draggingWidget?.id_widget === widget.id_widget
-              ? "opacity-50 scale-95 border-blue-300"
-              : "border-gray-200 hover:shadow-md hover:border-blue-200"
-          }`}
-      >
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50">
-          <span className="text-gray-300 text-base select-none">⠿</span>
-
-          <span className="text-sm font-semibold text-gray-700">
-            {widget.titulo}
-          </span>
-        </div>
-
-        <ScaledWidgetPreview widget={widget as unknown as Widget} />
-      </div>
-    </div>
-      ))}
-    </div>
+                <div key={`widget-${widget.posicion}`} className="relative">
+                  {widget.info && (
+                    <div className="absolute -top-2 -right-2 z-50">
+                      <HelpTooltip text={widget.info} position="left" />
+                    </div>
+                  )}
+                  <div
+                    draggable
+                    onDragStart={() => { setDraggingWidget(widget); setDraggingDocIndex(null); }}
+                    onDragEnd={() => { setDraggingWidget(null); setDropIndex(null); }}
+                    className={`w-full rounded-xl bg-white border shadow-sm cursor-grab active:cursor-grabbing select-none transition overflow-hidden
+                      ${draggingWidget?.id_widget === widget.id_widget
+                        ? "opacity-50 scale-95 border-blue-300"
+                        : "border-gray-200 hover:shadow-md hover:border-blue-200"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50">
+                      <span className="text-gray-300 text-base select-none">⠿</span>
+                      <span className="text-sm font-semibold text-gray-700">{widget.titulo}</span>
+                    </div>
+                    <ScaledWidgetPreview widget={widget as unknown as Widget} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>{/* cierre de div relative z-10 flex */}
+        </div>
 
-        {/* POPUP confirmación de borrado */}
+        {/* ── Popup confirmación de borrado ── */}
         {deleteIndex !== null && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-500/60">
-
             <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-[380px] p-8 flex flex-col items-center text-center">
-              <button
-                onClick={() => setDeleteIndex(null)}
-                className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg"
-              >✕</button>
-              <div className="mb-4">
-                <img src="/images/Confirmacion.png" alt="Confirmación" className="w-20 h-20 object-contain" />
-              </div>
+              <button onClick={() => setDeleteIndex(null)} className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg">✕</button>
+              <div className="mb-4"><img src="/images/Confirmacion.png" alt="Confirmación" className="w-20 h-20 object-contain" /></div>
               <h2 className="text-lg font-bold text-gray-900 mb-2">¿Estás segura?</h2>
               <p className="text-gray-500 text-sm mb-6">Este widget será eliminado de tu plantilla.</p>
               <div className="flex gap-3 w-full">
+                <button onClick={() => setDeleteIndex(null)} className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl font-semibold hover:bg-gray-50 transition">Cancelar</button>
+                <button onClick={() => handleDelete(deleteIndex)} className="flex-1 bg-[#EB0029] text-white py-2.5 rounded-xl font-semibold hover:opacity-90 transition">Eliminar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Popup: Agregar a biblioteca ── */}
+        {showBibliotecaModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-[460px] p-8 flex flex-col">
+              <button
+                onClick={() => { setShowBibliotecaModal(false); setShowBibliotecaError(null); }}
+                className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg"
+              >✕</button>
+
+              {/* Cabecera */}
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-[#EB0029]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m-8-8h16" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">Agregar a biblioteca</h2>
+              </div>
+              <p className="text-sm text-gray-500 mb-6 ml-12">
+                Esta plantilla quedará disponible para todos los proyectos nuevos. Asegúrate de que esté lista antes de publicarla.
+              </p>
+
+              {/* Vista previa de widgets */}
+              <div className="mb-5">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  Secciones incluidas ({docWidgets.length})
+                </p>
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                  {docWidgets.map((w, i) => (
+                    <span
+                      key={i}
+                      className="text-[11px] bg-gray-100 border border-gray-200 text-[#5B6670] rounded-md px-2 py-0.5"
+                    >
+                      {w.titulo}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Campo nombre */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-[#323E48] mb-1">
+                  Nombre de la plantilla
+                </label>
+                <div className="bg-gray-100 px-4 pt-3 pb-2">
+                  <input
+                    value={bibliotecaNombre}
+                    onChange={(e) => setBibliotecaNombre(e.target.value)}
+                    placeholder="ej. Plantilla Regulatoria"
+                    className="w-full bg-transparent outline-none text-sm text-[#5B6670] placeholder:text-[#b5bcc2]"
+                  />
+                </div>
+                <div className="h-[1px] bg-[#5B6670]" />
+                {bibliotecaSlug && (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    ID generado: <span className="font-mono text-gray-600">{bibliotecaSlug}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Separador de advertencia */}
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 mb-4 flex gap-3 items-start">
+                <svg className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  Esta acción publicará la plantilla en la biblioteca compartida. Si ya existe una plantilla con el mismo ID será sobreescrita. Escribe <span className="font-semibold">estoy seguro</span> para confirmar.
+                </p>
+              </div>
+
+              {/* Campo confirmación */}
+              <div className="mb-5">
+                <div className="bg-gray-100 px-4 pt-3 pb-2">
+                  <input
+                    value={bibliotecaConfirm}
+                    onChange={(e) => setBibliotecaConfirm(e.target.value)}
+                    placeholder='Escribe "estoy seguro"'
+                    className="w-full bg-transparent outline-none text-sm text-[#5B6670] placeholder:text-[#b5bcc2]"
+                  />
+                </div>
+                <div className={`h-[1px] mt-[1px] transition-colors ${confirmValido ? "bg-green-500" : "bg-[#5B6670]"}`} />
+              </div>
+
+              {/* Error inline */}
+              {showBibliotecaError && (
+                <p className="text-xs text-red-500 mb-3 -mt-2">{showBibliotecaError}</p>
+              )}
+
+              {/* Botones */}
+              <div className="flex gap-3">
                 <button
-                  onClick={() => setDeleteIndex(null)}
+                  onClick={() => { setShowBibliotecaModal(false); setShowBibliotecaError(null); }}
                   className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl font-semibold hover:bg-gray-50 transition"
                 >
                   Cancelar
                 </button>
                 <button
-                  onClick={() => handleDelete(deleteIndex)}
-                  className="flex-1 bg-[#EB0029] text-white py-2.5 rounded-xl font-semibold hover:opacity-90 transition"
+                  onClick={handleSubirBiblioteca}
+                  disabled={!confirmValido || !bibliotecaNombre.trim() || savingBiblioteca}
+                  className="flex-1 bg-[#EB0029] text-white py-2.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Eliminar
+                  {savingBiblioteca ? "Publicando..." : "Publicar plantilla"}
                 </button>
               </div>
             </div>
           </div>
         )}
+
       </div>
     </div>
   );
@@ -585,7 +669,7 @@ function DropZone({ index, isActive, isDragging, onDragOver, onDragLeave, onDrop
 
 const SCALE = 0.34;
 const DOC_WIDTH = 816;
-const noop = () => { };
+const noop = () => {};
 
 function ScaledWidgetPreview({ widget }: { widget: Widget }) {
   const innerRef = useRef<HTMLDivElement>(null);

@@ -197,8 +197,7 @@ export default function WidgetsModal({ isOpen, onClose, widgets, onWidgetsChange
       window.dispatchEvent(new CustomEvent("ers-refresh"));
 
       // NUEVO: Enviar mensaje al agente
-      const userId = sessionStorage.getItem("chat_user_id");
-      const sessionId = sessionStorage.getItem("chat_session_id");
+    
       if (userId && sessionId) {
         fetch(`${API_URL}/agent/query/stream`, {
           method: "POST",

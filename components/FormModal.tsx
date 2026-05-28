@@ -249,6 +249,7 @@ export default function FormModal({
         payload.formulario.nombre_iniciativa ?? ""
       );
       setTempUserId(payload.formulario.usuario_id ?? "");
+      sessionStorage.setItem(
         "chat_session_id",
         data.session_id ?? ""
       );

@@ -12,6 +12,8 @@ type ProjectItem = {
   fechacreacion: string;
   session_id: string;
   id_firestore_document?: string;
+  id_owner?: string;
+  permiso?: string;
 };
 
 export default function ProjectList() {
@@ -119,11 +121,13 @@ export default function ProjectList() {
   setSelectedId(project.folio);
 
   const loggedUserId = localStorage.getItem("idusuario")?.trim() || "";
+  const chatUserId = project.id_owner ?? loggedUserId;
 
-  sessionStorage.setItem("chat_user_id", loggedUserId);
+  sessionStorage.setItem("chat_user_id", chatUserId);
   sessionStorage.setItem("chat_session_id", project.session_id);
   sessionStorage.setItem("project_folio", String(project.folio)); 
   sessionStorage.setItem("project_name", project.nombreproyecto);
+  sessionStorage.setItem("logged_user_id", loggedUserId);
 
   if (project.id_firestore_document) {
     sessionStorage.setItem("project_id", project.id_firestore_document);
@@ -132,7 +136,7 @@ export default function ProjectList() {
   }
 
   const detail = {
-    userId: loggedUserId,
+    userId: chatUserId,
     sessionId: project.session_id,
     projectId: project.id_firestore_document ?? "",
     folio: project.folio,

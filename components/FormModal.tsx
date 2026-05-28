@@ -69,6 +69,13 @@ export default function FormModal({
 
   const [submittingProject, setSubmittingProject] = useState(false);
 
+  // ── plantilla settings state ─────────────────────────────────────────────
+  const [editingPlantillaId, setEditingPlantillaId] = useState<string | null>(null);
+  const [editingNombre, setEditingNombre] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+
   // ── fetch departamentos ─────────────────────────────────────────────────
   useEffect(() => {
     async function fetchDepartamentos() {
@@ -175,6 +182,53 @@ export default function FormModal({
       .join(", ");
   }
 
+  // ── rename plantilla ────────────────────────────────────────────────────
+  async function handleRenameSubmit(plantillaId: string) {
+    if (!editingNombre.trim()) return;
+    try {
+      setRenamingId(plantillaId);
+      const res = await fetch(`${API_URL}/plantillas/${plantillaId}`);
+      if (!res.ok) throw new Error("No se pudo cargar la plantilla");
+      const full = await res.json();
+      const patchRes = await fetch(`${API_URL}/plantillas/${plantillaId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: editingNombre.trim(), widgets: full.widgets }),
+      });
+      if (!patchRes.ok) throw new Error("No se pudo renombrar");
+      setPlantillas((prev) =>
+        prev.map((p) =>
+          p.id === plantillaId ? { ...p, nombre: editingNombre.trim() } : p
+        )
+      );
+      setEditingPlantillaId(null);
+      setEditingNombre("");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Error al renombrar");
+    } finally {
+      setRenamingId(null);
+    }
+  }
+
+  // ── delete plantilla ────────────────────────────────────────────────────
+  async function handleDeletePlantilla(plantillaId: string) {
+    try {
+      setDeletingId(plantillaId);
+      const res = await fetch(`${API_URL}/plantillas/${plantillaId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("No se pudo eliminar la plantilla");
+      setPlantillas((prev) => prev.filter((p) => p.id !== plantillaId));
+      if (formData.plantilla_id === plantillaId) handleChange("plantilla_id", "");
+      setEditingPlantillaId(null);
+      setConfirmDeleteId(null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Error al eliminar");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const isFormValid =
     formData.solicitante.trim() !== "" &&
     formData.dga.trim() !== "" &&
@@ -192,7 +246,6 @@ export default function FormModal({
     try {
       setSubmittingProject(true);
 
-      // 1. Descargar la plantilla seleccionada dinámicamente
       const plantillaRes = await fetch(
         `${API_URL}/plantillas/${formData.plantilla_id}`
       );
@@ -201,7 +254,6 @@ export default function FormModal({
       const plantillaData = await plantillaRes.json();
       const widgetsPlantilla = plantillaData.widgets;
 
-      // 2. Construir el payload
       const departamentosSeleccionados = departamentos.filter((dep) =>
         formData.departamentos.includes(String(dep.iddepartamento))
       );
@@ -226,7 +278,6 @@ export default function FormModal({
         },
         plantilla: widgetsPlantilla,
         nombre_plantilla: plantillaData.nombre || "",
-
       };
 
       const res = await fetch(`${API_URL}/firestore/new_project`, {
@@ -251,33 +302,14 @@ export default function FormModal({
         payload.formulario.nombre_iniciativa ?? ""
       );
       setTempUserId(payload.formulario.usuario_id ?? "");
-      sessionStorage.setItem(
-        "chat_session_id",
-        data.session_id ?? ""
-      );
-      sessionStorage.setItem(
-        "project_id",
-        data.project_id ?? ""
-      );
-
-      sessionStorage.setItem(
-        "project_folio", 
-        String(data.folio ?? "")
-      );
-
-      sessionStorage.setItem(
-        "project_name",
-        payload.formulario.nombre_iniciativa ?? "",
-      );
+      sessionStorage.setItem("pending_selected_folio", String(data.folio));
 
       window.dispatchEvent(
         new CustomEvent("project-created", {
           detail: { folio: data.folio },
-        }),
+        })
       );
 
-      setTempUserId(payload.formulario.usuario_id ?? "");
-      sessionStorage.setItem("pending_selected_folio", String(data.folio));
       onSubmit();
     } catch (error) {
       console.error(error);
@@ -337,13 +369,9 @@ export default function FormModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[999] p-4">
-      {/*
-        ── Contenedor principal: flex-col + max-h-[90vh] para que no se desborde
-           Las imágenes decorativas van FUERA del scroll (absolute sobre el modal)
-      ──────────────────────────────────────────────────────────────────────── */}
       <div className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-3xl shadow-xl flex flex-col overflow-hidden">
 
-        {/* Imágenes decorativas — fuera del scroll, sobre el modal */}
+        {/* Imágenes decorativas */}
         <img
           src="/images/RedBob.png"
           className="absolute -top-70 -right-20 w-50 pointer-events-none z-0"
@@ -360,7 +388,7 @@ export default function FormModal({
           alt=""
         />
 
-        {/* Botón cerrar — fijo arriba, fuera del scroll */}
+        {/* Botón cerrar */}
         <button
           onClick={onClose}
           className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 z-20"
@@ -368,7 +396,7 @@ export default function FormModal({
           <X size={20} />
         </button>
 
-        {/* ── Zona scrolleable ───────────────────────────────────────────── */}
+        {/* ── Zona scrolleable ── */}
         <div className="relative z-10 flex-1 overflow-y-auto px-14 py-10">
           <h3
             className="text-2xl font-bold mb-2"
@@ -505,9 +533,7 @@ export default function FormModal({
             </p>
 
             {loadingPlantillas ? (
-              <p className="text-sm text-[#5B6670]">
-                Cargando plantillas...
-              </p>
+              <p className="text-sm text-[#5B6670]">Cargando plantillas...</p>
             ) : plantillas.length === 0 ? (
               <p className="text-sm text-[#5B6670]">
                 No hay plantillas disponibles.
@@ -516,75 +542,214 @@ export default function FormModal({
               <div className="grid grid-cols-2 gap-3">
                 {plantillas.map((p) => {
                   const selected = formData.plantilla_id === p.id;
+                  const isEditing = editingPlantillaId === p.id;
                   const widgetCount = p.widgets?.length ?? 0;
                   const pills = p.widgets?.slice(0, 6) ?? [];
                   const extra = widgetCount > 6 ? widgetCount - 6 : 0;
 
                   return (
-                    <button
-                      type="button"
-                      key={p.id}
-                      onClick={() => handleChange("plantilla_id", p.id)}
-                      className={`text-left rounded-xl border-[1.5px] p-3 transition-all ${
-                        selected
-                          ? "border-[#EB0029] bg-red-50"
-                          : "border-gray-200 bg-gray-50 hover:border-[#EB0029] hover:bg-red-50"
-                      }`}
-                    >
-                      {/* Cabecera de la card */}
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-[#323E48] flex items-center gap-1">
-                          <svg
-                            className="w-4 h-4 text-[#EB0029] shrink-0"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                            />
-                          </svg>
-                          {p.nombre}
-                        </span>
-                        {selected && (
-                          <svg
-                            className="w-4 h-4 text-[#EB0029] shrink-0"
-                            fill="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5l-4-4 1.41-1.41L10 13.67l6.59-6.59L18 8.5l-8 8z" />
-                          </svg>
+                    <div key={p.id}>
+                      {/* Card principal — div clickeable en lugar de button para evitar button>button */}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleChange("plantilla_id", p.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ")
+                            handleChange("plantilla_id", p.id);
+                        }}
+                        className={`w-full text-left rounded-xl border-[1.5px] p-3 transition-all cursor-pointer ${
+                          selected
+                            ? "border-[#EB0029] bg-red-50"
+                            : "border-gray-200 bg-gray-50 hover:border-[#EB0029] hover:bg-red-50"
+                        }`}
+                      >
+                        {/* Cabecera de la card */}
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-semibold text-[#323E48] flex items-center gap-1 truncate pr-1">
+                            <svg
+                              className="w-4 h-4 text-[#EB0029] shrink-0"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                              />
+                            </svg>
+                            {p.nombre}
+                          </span>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            {selected && (
+                              <svg
+                                className="w-4 h-4 text-[#EB0029]"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5l-4-4 1.41-1.41L10 13.67l6.59-6.59L18 8.5l-8 8z" />
+                              </svg>
+                            )}
+
+                            {/* Botón tuerca */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isEditing) {
+                                  setEditingPlantillaId(null);
+                                  setEditingNombre("");
+                                  setConfirmDeleteId(null);
+                                } else {
+                                  setEditingPlantillaId(p.id);
+                                  setEditingNombre(p.nombre);
+                                  setConfirmDeleteId(null);
+                                }
+                              }}
+                              className="p-1 rounded hover:bg-gray-200 text-[#5B6670] hover:text-[#323E48] transition"
+                              title="Ajustes de plantilla"
+                            >
+                              <svg
+                                className={`w-3.5 h-3.5 transition-transform duration-300 ${
+                                  isEditing ? "rotate-45 text-[#EB0029]" : ""
+                                }`}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Pills de secciones */}
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {pills.map((w, i) => (
+                            <span
+                              key={i}
+                              className="text-[10px] bg-white border border-gray-200 text-[#5B6670] rounded px-1.5 py-0.5 leading-tight"
+                            >
+                              {w.titulo}
+                            </span>
+                          ))}
+                          {extra > 0 && (
+                            <span className="text-[10px] bg-white border border-gray-200 text-[#5B6670] rounded px-1.5 py-0.5 leading-tight">
+                              +{extra} más
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Badge conteo */}
+                        {widgetCount > 0 && (
+                          <span className="inline-block bg-[#EB0029] text-white text-[10px] font-medium rounded-full px-2 py-0.5">
+                            {widgetCount}{" "}
+                            {widgetCount === 1 ? "sección" : "secciones"}
+                          </span>
                         )}
                       </div>
 
-                      {/* Pills de secciones */}
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {pills.map((w, i) => (
-                          <span
-                            key={i}
-                            className="text-[10px] bg-white border border-gray-200 text-[#5B6670] rounded px-1.5 py-0.5 leading-tight"
-                          >
-                            {w.titulo}
-                          </span>
-                        ))}
-                        {extra > 0 && (
-                          <span className="text-[10px] bg-white border border-gray-200 text-[#5B6670] rounded px-1.5 py-0.5 leading-tight">
-                            +{extra} más
-                          </span>
-                        )}
-                      </div>
+                      {/* ── Panel de ajustes (debajo de la card) ── */}
+                      {isEditing && (
+                        <div className="mt-1 rounded-xl border border-gray-200 bg-white shadow-sm p-3 space-y-3">
+                          {/* Renombrar */}
+                          <div>
+                            <p className="text-[10px] font-semibold text-[#323E48] uppercase tracking-wide mb-1.5">
+                              Renombrar plantilla
+                            </p>
+                            <div className="flex gap-2">
+                              <input
+                                value={editingNombre}
+                                onChange={(e) =>
+                                  setEditingNombre(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleRenameSubmit(p.id);
+                                }}
+                                className="flex-1 bg-gray-100 text-sm text-[#323E48] px-3 py-1.5 rounded outline-none border border-transparent focus:border-[#EB0029] transition"
+                                placeholder="Nombre de la plantilla"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRenameSubmit(p.id)}
+                                disabled={
+                                  !editingNombre.trim() ||
+                                  renamingId === p.id
+                                }
+                                className="px-3 py-1.5 bg-[#EB0029] text-white text-xs font-semibold rounded hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {renamingId === p.id ? "..." : "Guardar"}
+                              </button>
+                            </div>
+                          </div>
 
-                      {/* Badge conteo */}
-                      {widgetCount > 0 && (
-                        <span className="inline-block bg-[#EB0029] text-white text-[10px] font-medium rounded-full px-2 py-0.5">
-                          {widgetCount}{" "}
-                          {widgetCount === 1 ? "sección" : "secciones"}
-                        </span>
+                          {/* Separador */}
+                          <div className="border-t border-gray-100" />
+
+                          {/* Eliminar */}
+                          <div>
+                            {confirmDeleteId === p.id ? (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs text-[#5B6670]">
+                                  ¿Confirmar eliminación?
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePlantilla(p.id)}
+                                  disabled={deletingId === p.id}
+                                  className="px-3 py-1 bg-[#EB0029] text-white text-xs font-semibold rounded hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {deletingId === p.id
+                                    ? "Eliminando..."
+                                    : "Sí, eliminar"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="px-3 py-1 bg-gray-100 text-[#5B6670] text-xs font-semibold rounded hover:bg-gray-200 transition"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(p.id)}
+                                className="text-xs text-[#EB0029] hover:underline font-medium flex items-center gap-1"
+                              >
+                                <svg
+                                  className="w-3.5 h-3.5"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth={2}
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                  />
+                                </svg>
+                                Eliminar plantilla
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -593,7 +758,7 @@ export default function FormModal({
         </div>
         {/* ── Fin zona scrolleable ── */}
 
-        {/* ── Botones — fijos al fondo, fuera del scroll ── */}
+        {/* ── Botones — fijos al fondo ── */}
         <div className="relative z-10 flex justify-end gap-5 px-14 py-6 border-t border-gray-100 bg-white shrink-0">
           <button
             onClick={onClose}

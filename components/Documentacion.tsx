@@ -25,11 +25,6 @@ import { API_URL } from "@/services/api";
 
 const API_BASE = `${API_URL}`;
 
-const DOC_NAMES: Record<"ERS" | "Análisis" | "Arquitectura", string> = {
-  ERS: "Documento ERS",
-  Análisis: "Documento de Análisis",
-  Arquitectura: "Diseño de Arquitectura",
-};
 
 function DownloadPopup({ docName, onClose }: { docName: string; onClose: () => void }) {
   return (
@@ -92,9 +87,15 @@ export default function Documentacion({ expanded, onToggle }: { expanded: boolea
   const [isWidgetsOpen, setIsWidgetsOpen] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [activeDocId, setActiveDocId] = useState("");
+  const [nombrePlantilla, setNombrePlantilla] = useState("Documento");
   const [emailPopup, setEmailPopup] = useState<{ show: boolean; success: boolean; message: string }>({
     show: false, success: false, message: "",
   });
+const DOC_NAMES: Record<"ERS" | "Análisis" | "Arquitectura", string> = {
+  ERS: nombrePlantilla,          // ← dinámico
+  Análisis: "Documento de Análisis",
+  Arquitectura: "Diseño de Arquitectura",
+};
 
   // Ref para capturar la función de descarga PDF del diagrama de arquitectura
   const arqDownloadRef = useRef<(() => Promise<void>) | null>(null);
@@ -176,6 +177,7 @@ const mapDataToWidgets = (data: any): Widget[] => {
         console.log("🟢 json.data →", json.data);
 
         if (isMounted && json.ok && json.data) {
+setNombrePlantilla(json.data?.nombre_plantilla || "Documento");
   const isDifferentProject = prevDocIdRef.current !== docId;
 
   const suppressHighlight =

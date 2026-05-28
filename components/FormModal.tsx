@@ -225,6 +225,8 @@ export default function FormModal({
             tempUserId || localStorage.getItem("idusuario") || null,
         },
         plantilla: widgetsPlantilla,
+        nombre_plantilla: plantillaData.nombre || "",
+
       };
 
       const res = await fetch(`${API_URL}/firestore/new_project`, {

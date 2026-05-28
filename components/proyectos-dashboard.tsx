@@ -182,16 +182,26 @@ export default function ProyectosDashboard() {
         const data = await res.json();
         console.log("DATA:", data);
 
-        const proyectosConPermiso = await Promise.all(
-          data.map(async (proyecto: Proyecto) => {
-            const isOwner = await checkPermisoProyecto(idusuario, proyecto.session_id);
+        const proyectosBase = Array.isArray(data)
+  ? data
+  : Array.isArray(data.proyectos)
+    ? data.proyectos
+    : [];
 
-            return {
-              ...proyecto,
-              isOwner,
-            };
-          })
-        );
+const proyectosConPermiso = await Promise.all(
+  proyectosBase.map(async (proyecto: Proyecto) => {
+    const isOwner = await checkPermisoProyecto(idusuario, proyecto.session_id);
+
+    return {
+      ...proyecto,
+      isOwner,
+    };
+  })
+);
+
+setProyectos(proyectosConPermiso);
+setProyectosOriginales(proyectosConPermiso);
+setTotalProyectos(data.total ?? proyectosConPermiso.length);
 
         setProyectos(proyectosConPermiso);
         setProyectosOriginales(proyectosConPermiso);

@@ -183,12 +183,38 @@ export default function WidgetsModal({ isOpen, onClose, widgets, onWidgetsChange
           }),
         }).catch((e) => console.error("No se pudo notificar al agente:", e));
       }
+      setDocWidgets(
+        payload.map((w) => ({
+          ...w,
+          _isNew: false,
+        }))
+      );
 
       setShowSuccess(true);
       const projectId = sessionStorage.getItem("project_id");
       localStorage.setItem(`plantilla_guardada_${projectId}`, "true");
       setMostrarAyuda(false);
       window.dispatchEvent(new CustomEvent("ers-refresh"));
+
+      // NUEVO: Enviar mensaje al agente
+      const userId = sessionStorage.getItem("chat_user_id");
+      const sessionId = sessionStorage.getItem("chat_session_id");
+      if (userId && sessionId) {
+        fetch(`${API_URL}/agent/query/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            session_id: sessionId,
+            message: "Modifiqué la plantilla, lee la plantilla de nuevo y responde solo con un OK",
+          }),
+        }).catch((e) => {
+          // Opcional: puedes mostrar un toast o loggear el error
+          console.error("No se pudo notificar al agente:", e);
+        });
+      }
+
+      window.dispatchEvent(new CustomEvent("ers-refresh")); // <- agrega esto
     } catch (e) {
       console.error(e);
       setShowError(true);

@@ -21,12 +21,19 @@ type FormDataType = {
   socio: string;
   cr: string;
   iniciativa: string;
-  departamentos: string[]
+  departamentos: string[];
   tipo: string;
+  plantilla_id: string;   // ← nuevo
 };
 
 type Departamento = {
   iddepartamento: number;
+  nombre: string;
+};
+
+// ── nuevo tipo ──────────────────────────────────────────────────────────────
+type PlantillaOpcion = {
+  id: string;
   nombre: string;
 };
 
@@ -48,134 +55,102 @@ export default function FormModal({
     iniciativa: "",
     departamentos: [],
     tipo: "",
+    plantilla_id: "",   // ← nuevo
   });
 
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [loadingDepartamentos, setLoadingDepartamentos] = useState(false);
   const [openDep, setOpenDep] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
-  const [submittingProject, setSubmittingProject] = useState(false); // <- nuevo estado para controlar el envío del proyecto
 
-  function toggleDepartamento(id: string) { // función para agregar o quitar departamentos del array
-    setFormData((prev) => {
-      const yaExiste = prev.departamentos.includes(id);
+  // ── estado plantillas ───────────────────────────────────────────────────
+  const [plantillas, setPlantillas] = useState<PlantillaOpcion[]>([]);
+  const [loadingPlantillas, setLoadingPlantillas] = useState(false);
+  const [openPlantilla, setOpenPlantilla] = useState(false);
+  const plantillaDropdownRef = useRef<HTMLDivElement | null>(null);
 
-      return {
-        ...prev,
-        departamentos: yaExiste
-          ? prev.departamentos.filter((depId) => depId !== id)
-          : [...prev.departamentos, id],
-      };
-    });
-  }
+  const [submittingProject, setSubmittingProject] = useState(false);
 
+  // ── fetch departamentos ─────────────────────────────────────────────────
   useEffect(() => {
     async function fetchDepartamentos() {
       try {
         setLoadingDepartamentos(true);
-
         const res = await fetch(`${API_URL}/departamentos`);
-
-        if (!res.ok) {
-          throw new Error("No se pudieron cargar los departamentos");
-        }
-
-        const data = await res.json();
-        setDepartamentos(data);
+        if (!res.ok) throw new Error("No se pudieron cargar los departamentos");
+        setDepartamentos(await res.json());
       } catch (error) {
         console.error("Error cargando departamentos:", error);
       } finally {
         setLoadingDepartamentos(false);
       }
     }
-
-    if (isOpen) {
-      fetchDepartamentos();
-    }
+    if (isOpen) fetchDepartamentos();
   }, [isOpen]);
 
-  // Auto llenado de campos solicitante y contacto con la info del usuario logueado, si está disponible
+  // ── fetch plantillas ────────────────────────────────────────────────────
+  useEffect(() => {
+    async function fetchPlantillas() {
+      try {
+        setLoadingPlantillas(true);
+        const res = await fetch(`${API_URL}/plantillas/`);
+        if (!res.ok) throw new Error("No se pudieron cargar las plantillas");
+        setPlantillas(await res.json());
+      } catch (error) {
+        console.error("Error cargando plantillas:", error);
+      } finally {
+        setLoadingPlantillas(false);
+      }
+    }
+    if (isOpen) fetchPlantillas();
+  }, [isOpen]);
+
+  // ── auto-llenado solicitante / contacto ─────────────────────────────────
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
-
     const nombre = localStorage.getItem("nombre") || "";
     const apellidopaterno = localStorage.getItem("apellidopaterno") || "";
     const apellidomaterno = localStorage.getItem("apellidomaterno") || "";
     const correo = localStorage.getItem("correo") || "";
     const idusuario = localStorage.getItem("idusuario") || tempUserId || "";
-
     const nombreCompleto = [nombre, apellidopaterno, apellidomaterno]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-
-    setFormData((prev) => ({
-      ...prev,
-      solicitante: nombreCompleto,
-      contacto: correo,
-    }));
-
+      .filter(Boolean).join(" ").trim();
+    setFormData((prev) => ({ ...prev, solicitante: nombreCompleto, contacto: correo }));
     setTempUserId(idusuario);
   }, [isOpen, tempUserId, setTempUserId]);
 
+  // ── click fuera de dropdowns ────────────────────────────────────────────
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node))
         setOpenDep(false);
-      }
+      if (plantillaDropdownRef.current && !plantillaDropdownRef.current.contains(event.target as Node))
+        setOpenPlantilla(false);
     }
-
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const fields: {
-    label: string;
-    key: keyof FormDataType;
-    placeholder: string;
-  }[] = [
-      {
-        label: "Solicitante",
-        key: "solicitante",
-        placeholder: "Juan Ramón Carranza",
-      },
-      {
-        label: "DGA",
-        key: "dga",
-        placeholder: "Tecnología",
-      },
-      {
-        label: "Información de contacto",
-        key: "contacto",
-        placeholder: "jorge.carranza@banorte.com",
-      },
-      {
-        label: "Patrocinador",
-        key: "patrocinador",
-        placeholder: "Banorte",
-      },
-      {
-        label: "Nombre del socio de negocio",
-        key: "socio",
-        placeholder: "Interno",
-      },
-      {
-        label: "CR",
-        key: "cr",
-        placeholder: "0123",
-      },
-      {
-        label: "Nombre de la iniciativa",
-        key: "iniciativa",
-        placeholder: "Sistema de ...",
-      },
+  function toggleDepartamento(id: string) {
+    setFormData((prev) => ({
+      ...prev,
+      departamentos: prev.departamentos.includes(id)
+        ? prev.departamentos.filter((d) => d !== id)
+        : [...prev.departamentos, id],
+    }));
+  }
 
-    ];
+  function handleChange(key: keyof FormDataType, value: string) {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function getDepartamentosSeleccionados() {
+    if (formData.departamentos.length === 0) return "";
+    return departamentos
+      .filter((d) => formData.departamentos.includes(String(d.iddepartamento)))
+      .map((d) => d.nombre)
+      .join(", ");
+  }
 
   const isFormValid =
     formData.solicitante.trim() !== "" &&
@@ -186,32 +161,25 @@ export default function FormModal({
     formData.cr.trim() !== "" &&
     formData.iniciativa.trim() !== "" &&
     formData.departamentos.length > 0 &&
-    formData.tipo.trim() !== "";
+    formData.tipo.trim() !== "" &&
+    formData.plantilla_id.trim() !== "";   // ← nuevo requisito
 
-  function handleChange(key: keyof FormDataType, value: string) {
-    setFormData((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  }
-
+  // ── submit ──────────────────────────────────────────────────────────────
   async function handleSubmit() {
     try {
       setSubmittingProject(true);
 
+      // 1. Descargar la plantilla seleccionada dinámicamente
+      const plantillaRes = await fetch(`${API_URL}/plantillas/${formData.plantilla_id}`);
+      if (!plantillaRes.ok) throw new Error("No se pudo cargar la plantilla seleccionada.");
+      const plantillaData = await plantillaRes.json();
+      const widgetsPlantilla = plantillaData.widgets; // array de widgets desde Firestore
 
-      // Aquí puedes construir el payload que enviarás al backend, usando formData y departamentos para llenar los campos necesarios
+      // 2. Construir el payload usando los widgets de la plantilla
       const departamentosSeleccionados = departamentos.filter((dep) =>
         formData.departamentos.includes(String(dep.iddepartamento))
       );
-
-      const nombresDepartamentos = departamentosSeleccionados.map((dep) => dep.nombre);
-
-      const areasImpactadasConNombre = departamentosSeleccionados.map((dep) => ({
-        AREA_NEGOCIO: dep.nombre,
-        PROCESO_IMPACTO: null,
-      }));
-
+      const nombresDepartamentos = departamentosSeleccionados.map((d) => d.nombre);
 
       const payload = {
         formulario: {
@@ -227,448 +195,76 @@ export default function FormModal({
           usuario_nombre: null,
           usuario_id: tempUserId || localStorage.getItem("idusuario") || null,
         },
-        plantilla: [{
-          posicion: 0,
-          id_widget: "w_000",
-          titulo: "Datos generales de la iniciativa",
-          objetivo_widget: "Capturar la información general y administrativa de la iniciativa.",
-          descripcion_campos: {
-            SOLICITANTE: "Solicitante",
-            INFO_CONTACTO: "Información de contacto",
-            DGA: "Dirección General Adjunta",
-            PATROCINADOR: "Patrocinador",
-            CR: "Centro de Responsabilidad",
-            SOCIO: "Nombre del Socio de Negocio",
-            NOMBRE_INICIATIVA: "Nombre de la iniciativa",
-            TIPO_INICIATIVA: "Tipo de la iniciativa",
-          },
-          campos: {
-            SOLICITANTE: null,
-            INFO_CONTACTO: null,
-            DGA: null,
-            PATROCINADOR: null,
-            CR: null,
-            SOCIO: null,
-            NOMBRE_INICIATIVA: null,
-            TIPO_INICIATIVA: null,
-          },
-        },
-          {
-            id_widget: "w_006",
-            posicion: 1,
-            titulo: "Descripción de la iniciativa",
-            objetivo_widget: "Describir de manera general la iniciativa, su propósito y contexto.",
-            descripcion_campos: {
-                descripcion: "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
-                tipo: "Tipo de bloque. Puede ser 'subtitulo' o 'parrafo'.",
-                texto: "Contenido visible del bloque."
-          },
-          campos: {
-            "titulo": "Descripción de la iniciativa",
-            "bloques": [
-              {
-                "id": "bloque_1",
-                "tipo": "subtitulo",
-                "texto": "Descripción general de la iniciativa"
-              },
-              {
-                "id": "bloque_2",
-                "tipo": "parrafo",
-                "texto": "NULL"
-              }
-            ]
-          },
-        },
-        {
-          id_widget: "w_006",
-          posicion: 2,
-          titulo: "Objetivos y alcance",
-          objetivo_widget: "Definir el objetivo principal y el alcance de la iniciativa.",
-          descripcion_campos: {
-          },
-          campos: {
-            "titulo": "Descripción de la iniciativa",
-            "bloques": [
-              {
-                "id": "bloque_1",
-                "tipo": "subtitulo",
-                "texto": "Objetivo"
-              },
-               {
-                "id": "bloque_2",
-                "tipo": "parrafo",
-                "texto": "NULL"
-              },
-              {
-                "id": "bloque_3",
-                "tipo": "subtitulo",
-                "texto": "Alcance"
-              },
-               {
-                "id": "bloque_4",
-                "tipo": "parrafo",
-                "texto": "NULL"
-              }
-            ]
-          },
-        },
-        {
-          //// DONE 
-          id_widget: "w_003",
-          posicion: 3,
-          titulo: "Areas impactadas",
-          objetivo_widget: "Identificar las áreas de la organización que serán impactadas.",
-          descripcion_campos: {
-            filas: "Listado de areas de negocio, que procesos la impactan y la descripcion del impacto",
-            AREA_NEGOCIO: "El area del negocio",
-            IMPACTOS: "el tipo de proceso y como impactan al area",
-          },
-          campos: {
-            filas:
-              [
-                { AREA_NEGOCIO: "NULL", IMPACTOS: "NULL" },
-              ],
-          },
-        },
-        {
-          "posicion": 4,
-          "id_widget": "w_005",
-          "titulo": "Requerimientos de Negocio",
-          "objetivo_widget": "Eres responsable de gestionar este widget de tabla libre para capturar los requerimientos de negocio. Cada fila es independiente y puede tener diferente número de celdas que se distribuyen equitativamente. CAMPO 'filas' (OBLIGATORIO): Array de objetos donde cada uno tiene 'celdas': array de objetos con 'valor' (string, contenido principal), 'label' (string opcional, texto pequeño gris encima del valor), 'bold' (boolean opcional). CAMPO 'titulo' (OBLIGATORIO): Título de la sección. REGLA: Las celdas de cada fila se distribuyen equitativamente en el ancho de forma automática. Solo escribe dentro de campos.",
-          "descripcion_campos": {
-            "titulo": "Título de la sección.",
-            "filas": "Array de filas independientes. Cada fila tiene 'celdas': array de objetos con 'valor' (string), 'label' (string opcional, aparece pequeño encima del valor), 'bold' (boolean opcional). Las celdas se dividen el ancho equitativamente de forma automática por fila."
-          },
-          "campos": {
-            "titulo": "Requerimientos de Negocio",
-            "filas": [
-              { "celdas": [{ "valor": "tablaFR", "bold": true }] },
-              {
-                "celdas": [
-                  { "label": "Área participante", "valor": "" },
-                  { "label": "N/A", "valor": "" },
-                  { "label": "Responsable", "valor": "" },
-                  { "label": "N/A", "valor": "" }
-                ]
-              },
-              { "celdas": [{ "valor": "En caso de ser un requerimiento Regulatorio.", "bold": true }] },
-              {
-                "celdas": [
-                  { "label": "Autoridad que solicita la regulación o cambio.", "valor": "" },
-                  { "label": "por definir", "valor": "" }
-                ]
-              },
-
-              {
-                "celdas": [{ "label": "Fecha de emisión de la regulación.", "valor": "" },
-                { "label": "NA", "valor": "" }
-                ]
-              },
-              {
-                "celdas": [{ "label": "Fecha de recepción de la regulación por parte de GFNorte.", "valor": "" },
-                { "label": "N/A", "valor": "" }]
-              },
-              {
-                "celdas": [{ "label": "Fecha de entrada en vigor de la regulación.", "valor": "" },
-                { "label": "N/A", "valor": "" }
-                ]
-              },
-              {
-                "celdas": [{ "label": "Monto posible de la sanción (Multa).", "valor": "" },
-                { "label": "0", "valor": "" }
-                ]
-              },
-              {
-                "celdas": [{ "label": "Aplicativos (sistemas) que se ven impactados.", "valor": "" },
-                { "label": "N/A", "valor": "" }
-                ]
-              },
-
-              { "celdas": [{ "valor": "En caso de no ser requerimiento Regulatorio.", "bold": true }] },
-              {
-                "celdas": [
-                  { "label": "Es urgente", "valor": "" },
-                  { "label": "Fecha límite de la Urgencia", "valor": "" }
-                ]
-              },
-              { "celdas": [{ "valor": "En caso de ser un requerimiento Periódico.", "bold": true }] },
-              { "celdas": [{ "label": "Periodicidad", "valor": "" }] },
-              { "celdas": [{ "label": "Fechas requeridas de entrega", "valor": "" }] }
-            ]
-          }
-        },
-        {
-          id_widget: "w_006",
-          posicion: 5,
-          titulo: "Beneficios",
-          objetivo_widget: "Identificar beneficios adicionales derivados de la iniciativa.",
-          descripcion_campos: {
-          },
-          campos: {
-            "titulo": "Beneficios",
-            "bloques": [
-              {
-                "id": "bloque_1",
-                "tipo": "subtitulo",
-                "texto": "Otros Beneficios"
-              },
-                 {
-                "id": "bloque_4",
-                "tipo": "parrafo",
-                "texto": "NULL"
-              }
-            ]
-          },
-        },
-        {
-          id_widget: "w_006",
-          posicion: 6,
-          titulo: "Participación de otras áreas",
-          objetivo_widget: "Registrar la participación de otras áreas en la iniciativa.",
-          descripcion_campos: {
-            "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
-            "titulo": "OPCIONAL. Sobrescribe el título principal de la sección. Valor por defecto: 'Descripción general de la iniciativa y justificación'.",
-          },
-          campos: {
-            "titulo": "Participación de otras áreas",
-            "bloques": []
-          },
-        },
-        {
-          id_widget: "w_003",
-          posicion: 7,
-          titulo: "Riesgos",
-          objetivo_widget:
-            "Eres responsable de gestionar este widget de identificación de riesgos del proyecto. Se renderiza como una tabla dinámica donde campos.headers define las columnas y campos.filas contiene los datos.",
-
-          descripcion_campos: {
-            titulo: "Título editable de la sección.",
-            headers:
-              "Array ordenado de { key, label }. Define las columnas de la tabla. key es permanente, label es editable.",
-            filas:
-              "OBLIGATORIO. Array de objetos donde cada uno representa una fila. Las keys de cada objeto deben coincidir exactamente con las keys de headers.",
-            TIPO: "Key fija. Nombre o categoría del riesgo identificado.",
-            PROBABLE_PERDIDA:
-              "Key fija. Consecuencia o impacto esperado.",
-            JUSTIFICACION:
-              "Key fija. Razón por la que este riesgo existe.",
-          },
-
-          campos: {
-            titulo: "Riesgos",
-
-            headers: [
-              {
-                key: "TIPO",
-                label: "Riesgo",
-              },
-              {
-                key: "PROBABLE_PERDIDA",
-                label: "Probable Pérdida",
-              },
-              {
-                key: "JUSTIFICACION",
-                label: "Justificación",
-              },
-            ],
-
-            filas: [
-              {
-                TIPO: "",
-                PROBABLE_PERDIDA: "",
-                JUSTIFICACION: "",
-              },
-            ],
-          },
-        },
-        {
-          id_widget: "w_006",
-          posicion: 8,
-          titulo: "Exclusiones",
-          objetivo_widget: "Definir los elementos fuera del alcance de la iniciativa.",
-          descripcion_campos: {
-            "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
-            "titulo": "OPCIONAL. Sobrescribe el título principal de la sección. Valor por defecto: 'Descripción general de la iniciativa y justificación'.",
-          },
-          campos: {
-            "titulo": "Exclusiones",
-            "bloques": []
-          },
-        },
-        {
-          //// POR HACER
-          id_widget: "w_006",
-          posicion: 9,
-          titulo: "Supuestos",
-          objetivo_widget: "Registrar los supuestos considerados para la iniciativa.",
-          descripcion_campos: {
-            "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
-            "titulo": "OPCIONAL. Sobrescribe el título principal de la sección. Valor por defecto: 'Descripción general de la iniciativa y justificación'.",
-          },
-          campos: {
-            "titulo": "Supuestos",
-            "bloques": []
-          },
-        },
-        {
-          //// DONE pero quiero que el subtitulo sea opcional
-          id_widget: "w_006",
-          posicion: 10,
-          titulo: "Restricciones",
-          objetivo_widget: "Documentar las restricciones que afectan la iniciativa.",
-          descripcion_campos: {
-            "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
-            "titulo": "OPCIONAL. Sobrescribe el título principal de la sección. Valor por defecto: 'Descripción general de la iniciativa y justificación'.",
-          },
-          campos: {
-            "titulo": "Restricciones",
-            "bloques": []
-          },
-        },
-        {
-          //// POR HACER
-          id_widget: "w_006",
-          posicion: 11,
-          titulo: "Anexos",
-          objetivo_widget: "Adjuntar documentación adicional relevante a la iniciativa.",
-          descripcion_campos: {
-            "descripcion": "OBLIGATORIO si está vacío. Explicación completa de la iniciativa: problema a resolver, contexto actual y justificación del proyecto. Si ya tiene contenido, solo modificar si el usuario lo pide explícitamente.",
-            "titulo": "OPCIONAL. Sobrescribe el título principal de la sección. Valor por defecto: 'Descripción general de la iniciativa y justificación'.",
-          },
-          campos: {
-            "titulo": "Anexos",
-            "bloques": []
-          },
-        },
-        ]
-      }
-
-      console.log("📦 PAYLOAD QUE SE ENVÍA:");
-      console.log(JSON.stringify(payload, null, 2));
+        plantilla: widgetsPlantilla,   // ← dinámico, ya no hardcodeado
+      };
 
       const res = await fetch(`${API_URL}/firestore/new_project`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-
-      console.log("📡 STATUS:", res.status);
-
       const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail || "No se pudo crear el proyecto.");
 
-      console.log("✅ RESPONSE DEL BACKEND:");
-      console.log(data);
-
-
-      if (!res.ok) {
-        throw new Error(data?.detail || "No se pudo crear el proyecto.");
-      }
-
-      console.log("Proyecto creado:", data);
-
-      sessionStorage.setItem(
-        "chat_user_id",
-        data.user_id ?? payload.formulario.usuario_id ?? ""
-      );
-      sessionStorage.setItem(
-        "chat_session_id",
-        data.session_id ?? ""
-      );
-      sessionStorage.setItem(
-        "project_id",
-        data.project_id ?? ""
-      );
-
-      sessionStorage.setItem(
-        "project_folio", 
-        String(data.folio ?? "")
-      );
-
-      sessionStorage.setItem(
-        "project_name", 
-        payload.formulario.nombre_iniciativa ?? ""
-      );
-
+      sessionStorage.setItem("chat_user_id", data.user_id ?? payload.formulario.usuario_id ?? "");
+      sessionStorage.setItem("chat_session_id", data.session_id ?? "");
+      sessionStorage.setItem("project_id", data.project_id ?? "");
+      sessionStorage.setItem("project_folio", String(data.folio ?? ""));
+      sessionStorage.setItem("project_name", payload.formulario.nombre_iniciativa ?? "");
       setTempUserId(payload.formulario.usuario_id ?? "");
 
       onSubmit();
     } catch (error) {
       console.error(error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Ocurrió un error al crear el proyecto."
-      );
+      alert(error instanceof Error ? error.message : "Ocurrió un error al crear el proyecto.");
     } finally {
       setSubmittingProject(false);
     }
   }
-  function getDepartamentosSeleccionados() {
-    if (formData.departamentos.length === 0) return "";
 
-    return departamentos
-      .filter((d) => formData.departamentos.includes(String(d.iddepartamento)))
-      .map((d) => d.nombre)
-      .join(", ");
-  }
+  const fields: { label: string; key: keyof FormDataType; placeholder: string }[] = [
+    { label: "Solicitante",               key: "solicitante", placeholder: "Juan Ramón Carranza" },
+    { label: "DGA",                       key: "dga",         placeholder: "Tecnología" },
+    { label: "Información de contacto",   key: "contacto",    placeholder: "jorge.carranza@banorte.com" },
+    { label: "Patrocinador",              key: "patrocinador", placeholder: "Banorte" },
+    { label: "Nombre del socio de negocio", key: "socio",     placeholder: "Interno" },
+    { label: "CR",                        key: "cr",          placeholder: "0123" },
+    { label: "Nombre de la iniciativa",   key: "iniciativa",  placeholder: "Sistema de ..." },
+  ];
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[999]">
       <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-xl px-14 py-10 overflow-hidden">
-        <img
-          src="/images/RedBob.png"
-          className="absolute -top-70 -right-20 w-50 pointer-events-none"
-          alt=""
-        />
-        <img
-          src="/images/GreyBob.png"
-          className="absolute top-1/2 -right-20 -translate-y-1/2 w-35 pointer-events-none"
-          alt=""
-        />
-        <img
-          src="/images/banortegf.png"
-          className="absolute bottom-2 left-0 w-60 pointer-events-none"
-          alt=""
-        />
+        {/* imágenes decorativas — sin cambios */}
+        <img src="/images/RedBob.png"     className="absolute -top-70 -right-20 w-50 pointer-events-none" alt="" />
+        <img src="/images/GreyBob.png"    className="absolute top-1/2 -right-20 -translate-y-1/2 w-35 pointer-events-none" alt="" />
+        <img src="/images/banortegf.png"  className="absolute bottom-2 left-0 w-60 pointer-events-none" alt="" />
 
-        <button
-          onClick={onClose}
-          className="absolute top-6 right-6 text-gray-400 hover:text-gray-600"
-        >
+        <button onClick={onClose} className="absolute top-6 right-6 text-gray-400 hover:text-gray-600">
           <X size={20} />
         </button>
 
         <div className="relative z-10">
-          <h3 className="text-2xl font-bold mb-2" style={{ color: "#EB0029" }}>
-            Formulario
-          </h3>
-
-          <p className="text-sm font-bold text-[#323E48] mb-10">
-            Por favor, ingrese la siguiente información.
-          </p>
+          <h3 className="text-2xl font-bold mb-2" style={{ color: "#EB0029" }}>Formulario</h3>
+          <p className="text-sm font-bold text-[#323E48] mb-10">Por favor, ingrese la siguiente información.</p>
 
           <div className="grid grid-cols-2 gap-y-10">
+            {/* campos de texto — sin cambios */}
             {fields.map((field, i) => (
               <div key={i}>
-                <label className="block text-sm font-bold text-[#323E48] mb-2">
-                  {field.label}
-                </label>
-
+                <label className="block text-sm font-bold text-[#323E48] mb-2">{field.label}</label>
                 <div className="w-[75%]">
                   <div className="bg-gray-100 px-4 pt-3 pb-2">
                     <input
-                      value={formData[field.key]}
+                      value={formData[field.key] as string}
                       onChange={(e) => handleChange(field.key, e.target.value)}
                       readOnly={field.key === "solicitante" || field.key === "contacto"}
-                      className={`w-full bg-transparent outline-none text-sm text-[#5B6670] placeholder:text-[#b5bcc2] ${field.key === "solicitante" || field.key === "contacto"
-                          ? "cursor-not-allowed"
-                          : ""
-                        }`}
+                      className={`w-full bg-transparent outline-none text-sm text-[#5B6670] placeholder:text-[#b5bcc2] ${
+                        field.key === "solicitante" || field.key === "contacto" ? "cursor-not-allowed" : ""
+                      }`}
                       placeholder={field.placeholder}
                     />
                   </div>
@@ -677,56 +273,34 @@ export default function FormModal({
               </div>
             ))}
 
+            {/* selector departamentos — sin cambios */}
             <div>
-              <label className="block text-sm font-bold text-[#323E48] mb-2">
-                Departamentos impactados
-              </label>
-
+              <label className="block text-sm font-bold text-[#323E48] mb-2">Departamentos impactados</label>
               <div className="w-[75%] relative" ref={dropdownRef}>
                 <div className="bg-gray-100 px-4 pt-3 pb-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm text-[#5B6670] min-h-[24px] flex items-center overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-gray-700">
-                      {getDepartamentosSeleccionados() ||
-                        (loadingDepartamentos ? "Cargando departamentos..." : "")}
+                      {getDepartamentosSeleccionados() || (loadingDepartamentos ? "Cargando..." : "")}
                     </span>
-
-                    <button
-                      type="button"
-                      onClick={() => setOpenDep((prev) => !prev)}
-                      className="ml-3 shrink-0 text-[#5B6670] hover:text-black"
-                    >
-                      <ChevronDown
-                        size={22}
-                        className={`transition-transform duration-200 ${openDep ? "rotate-180" : ""
-                          }`}
-                      />
+                    <button type="button" onClick={() => setOpenDep((p) => !p)} className="ml-3 shrink-0 text-[#5B6670] hover:text-black">
+                      <ChevronDown size={22} className={`transition-transform duration-200 ${openDep ? "rotate-180" : ""}`} />
                     </button>
                   </div>
                 </div>
-
                 <div className="h-[1px] bg-[#5B6670] mt-[1px] w-full" />
-
                 {openDep && (
                   <div className="absolute left-0 top-[calc(100%+8px)] w-full bg-gray-100 rounded-md py-3 shadow-md max-h-40 overflow-y-auto z-50">
                     {departamentos.length === 0 && !loadingDepartamentos ? (
-                      <div className="px-4 py-2 text-sm text-[#5B6670]">
-                        No hay departamentos disponibles
-                      </div>
+                      <div className="px-4 py-2 text-sm text-[#5B6670]">No hay departamentos disponibles</div>
                     ) : (
                       departamentos.map((dep) => {
                         const depId = String(dep.iddepartamento);
                         const selected = formData.departamentos.includes(depId);
-
                         return (
-                          <button
-                            type="button"
-                            key={dep.iddepartamento}
-                            onClick={() => toggleDepartamento(depId)}
-                            className={`w-full text-left px-4 py-[7px] text-sm transition flex items-center justify-between ${selected
-                              ? "bg-gray-200 text-[#323E48] font-semibold"
-                              : "text-[#5B6670] hover:bg-gray-200"
-                              }`}
-                          >
+                          <button type="button" key={dep.iddepartamento} onClick={() => toggleDepartamento(depId)}
+                            className={`w-full text-left px-4 py-[7px] text-sm transition flex items-center justify-between ${
+                              selected ? "bg-gray-200 text-[#323E48] font-semibold" : "text-[#5B6670] hover:bg-gray-200"
+                            }`}>
                             <span>{dep.nombre}</span>
                             {selected && <span>✓</span>}
                           </button>
@@ -739,11 +313,9 @@ export default function FormModal({
             </div>
           </div>
 
+          {/* tipo de iniciativa — sin cambios */}
           <div className="mt-10">
-            <label className="block text-sm font-bold text-[#323E48] mb-2">
-              Tipo de la iniciativa
-            </label>
-
+            <label className="block text-sm font-bold text-[#323E48] mb-2">Tipo de la iniciativa</label>
             <div className="w-[70%]">
               <div className="bg-gray-100 px-4 pt-3 pb-2">
                 <input
@@ -757,22 +329,68 @@ export default function FormModal({
             </div>
           </div>
 
+          {/* ── selector de plantilla ── */}
+          <div className="mt-10">
+            <label className="block text-sm font-bold text-[#323E48] mb-2">Plantilla</label>
+            <div className="w-[70%] relative" ref={plantillaDropdownRef}>
+              <div className="bg-gray-100 px-4 pt-3 pb-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-[#5B6670] min-h-[24px] flex items-center">
+                    {loadingPlantillas
+                      ? "Cargando plantillas..."
+                      : plantillas.find((p) => p.id === formData.plantilla_id)?.nombre || (
+                          <span className="text-[#b5bcc2]">Selecciona una plantilla</span>
+                        )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setOpenPlantilla((p) => !p)}
+                    className="ml-3 shrink-0 text-[#5B6670] hover:text-black"
+                  >
+                    <ChevronDown size={22} className={`transition-transform duration-200 ${openPlantilla ? "rotate-180" : ""}`} />
+                  </button>
+                </div>
+              </div>
+              <div className="h-[1px] bg-[#5B6670] mt-[1px] w-full" />
+
+              {openPlantilla && (
+                <div className="absolute left-0 top-[calc(100%+8px)] w-full bg-gray-100 rounded-md py-3 shadow-md max-h-40 overflow-y-auto z-50">
+                  {plantillas.length === 0 && !loadingPlantillas ? (
+                    <div className="px-4 py-2 text-sm text-[#5B6670]">No hay plantillas disponibles</div>
+                  ) : (
+                    plantillas.map((p) => {
+                      const selected = formData.plantilla_id === p.id;
+                      return (
+                        <button
+                          type="button"
+                          key={p.id}
+                          onClick={() => { handleChange("plantilla_id", p.id); setOpenPlantilla(false); }}
+                          className={`w-full text-left px-4 py-[7px] text-sm transition flex items-center justify-between ${
+                            selected ? "bg-gray-200 text-[#323E48] font-semibold" : "text-[#5B6670] hover:bg-gray-200"
+                          }`}
+                        >
+                          <span>{p.nombre}</span>
+                          {selected && <span>✓</span>}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* botones — sin cambios */}
           <div className="flex justify-end gap-5 mt-9">
-            <button
-              onClick={onClose}
-              className="px-7 py-3 rounded-xl text-white font-medium"
-              style={{ backgroundColor: "#5B6670" }}
-            >
+            <button onClick={onClose} className="px-7 py-3 rounded-xl text-white font-medium" style={{ backgroundColor: "#5B6670" }}>
               Regresar
             </button>
-
             <button
               onClick={handleSubmit}
-              disabled={loadingSession || submittingProject || !isFormValid} // <- deshabilitar el botón si se está cargando la sesión, si se está enviando el proyecto o si el formulario no es válido
+              disabled={loadingSession || submittingProject || !isFormValid}
               className="px-7 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: "#EB0029" }}
             >
-
               {submittingProject ? "Creando proyecto..." : "Continuar"}
             </button>
           </div>
@@ -781,21 +399,3 @@ export default function FormModal({
     </div>
   );
 }
-
-
-{/* COMO AGREGAR MODAL
-
-  ya al final, antes de cerrar el section y agregar arriba el import:
-  import FormModal from "@/components/FormModal";
-
- <FormModal
-  isOpen={showLoginModal}
-  tempUserId={tempUserId}
-  setTempUserId={setTempUserId}
-  loadingSession={loadingSession}
-  onClose={() => setShowLoginModal(false)}
-  onSubmit={createSession}
-/>
-    </section>
-
-    */}

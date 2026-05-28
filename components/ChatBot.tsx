@@ -229,6 +229,9 @@ export default function ChatBot() {
 
   // Lock helpers
   const getToken = () => localStorage.getItem("token") ?? "";
+  const getLoggedUserId = () =>
+    sessionStorage.getItem("logged_user_id") ||
+    localStorage.getItem("idusuario") || "";
 
   const stopHeartbeat = useCallback(() => {
     if (heartbeatRef.current) {
@@ -319,7 +322,7 @@ export default function ChatBot() {
     setSessionId(nextSessionId);
     setTempUserId(nextUserId);
     setShowLoginModal(false);
-    checkPermiso(nextUserId, nextSessionId);
+
 
     const savedInput = localStorage.getItem(getInputKey(nextSessionId));
     setInput(savedInput || "");
@@ -350,6 +353,9 @@ export default function ChatBot() {
       localStorage.setItem(getMessagesKey(nextSessionId), JSON.stringify(synced));
       console.log(`[ChatBot] Sync: ${synced.length - cachedMessages.length} mensaje(s) nuevo(s) agregado(s)`);
     }
+
+    const realUserId = getLoggedUserId() || nextUserId;
+    checkPermiso(realUserId, nextSessionId);
  
     const folioParaLock = nextFolio ?? Number(sessionStorage.getItem("project_folio") ?? "0");
     if (folioParaLock) {

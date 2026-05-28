@@ -177,8 +177,8 @@ const mapDataToWidgets = (data: any): Widget[] => {
         console.log("🟢 json.data →", json.data);
 
         if (isMounted && json.ok && json.data) {
-setNombrePlantilla(json.data?.nombre_plantilla || "Documento");
-  const isDifferentProject = prevDocIdRef.current !== docId;
+         setNombrePlantilla(json.data?.nombre_plantilla || "Documento");
+        const isDifferentProject = prevDocIdRef.current !== docId;
 
   const suppressHighlight =
   sessionStorage.getItem("suppress_ers_highlight") === "1";

@@ -16,7 +16,6 @@ interface Proyecto {
   id_firestore_document?: string;
   id_owner?: string;
   permiso?: string;
-  permiso?: string; // solo el owner puede borrar proyectos
   isOwner?: boolean; // solo el owner puede borrar proyectos
 }
 

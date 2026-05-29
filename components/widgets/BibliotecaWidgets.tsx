@@ -656,6 +656,7 @@ type BlockRowProps = {
   onToggleTipo: (id: string) => void;
   onEnter: (id: string) => void;
   onDelete: (id: string) => void;
+  onExitList: (id: string, newTexto: string) => void;
   focusRef?: React.RefObject<HTMLTextAreaElement | null>;
 };
 
@@ -666,6 +667,7 @@ const BlockRow = ({
   onToggleTipo,
   onEnter,
   onDelete,
+  onExitList,
   focusRef,
 }: BlockRowProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -679,16 +681,115 @@ const BlockRow = ({
   }, [block.texto]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const value = textarea.value;
+      const cursor = textarea.selectionStart;
+      const newValue = value.slice(0, cursor) + "  " + value.slice(cursor);
+      onChange(block.id, "texto", newValue);
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = cursor + 2;
+      }, 0);
+      return;
+    }
+
     if ((e.metaKey || e.ctrlKey) && e.key === "b") {
       e.preventDefault();
       onToggleTipo(block.id);
       return;
     }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+
+      const textarea = e.currentTarget;
+      const value = textarea.value;
+      const cursor = textarea.selectionStart;
+
+      const beforeCursor = value.slice(0, cursor);
+      const afterCursor = value.slice(cursor);
+      const lineStart = beforeCursor.lastIndexOf("\n") + 1;
+      const lineEnd = value.indexOf("\n", cursor);
+      const fullLine = value.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
+
+      // ── Lista numerada ──────────────────────────────────────
+      const numberedMatch = fullLine.match(/^(\d+)\.\s+(.*)/);
+      if (numberedMatch) {
+        const lineContent = numberedMatch[2];
+
+        if (lineContent.trim() === "") {
+          const removeFrom = lineStart > 0 ? lineStart - 1 : 0;
+          const removeTo = lineEnd === -1 ? value.length : lineEnd;
+          const newText = value.slice(0, removeFrom) + value.slice(removeTo);
+          onExitList(block.id, newText.trimEnd());
+          return;
+        }
+
+        const currentNum = parseInt(numberedMatch[1]);
+        const nextNum = currentNum + 1;
+
+        // Construir: antes de la línea | izq del cursor | \nN+1. | der del cursor + resto renumerado
+        const beforeLine = value.slice(0, lineStart);
+        const currentLineText = value.slice(lineStart, lineEnd === -1 ? value.length : lineEnd);
+        const restLines = lineEnd === -1 ? "" : value.slice(lineEnd); // empieza con \n
+
+        const cursorInLine = cursor - lineStart;
+        const leftOfCursor = currentLineText.slice(0, cursorInLine);
+        const rightOfCursor = currentLineText.slice(cursorInLine);
+
+        // Renumerar líneas siguientes: cada "N. " incrementa en 1
+        let counter = nextNum + 1;
+        const renumberedRest = restLines.replace(/(\n)(\d+)\.\s+/g, (_match, nl) => {
+          const r = `${nl}${counter}. `;
+          counter++;
+          return r;
+        });
+
+        const built =
+          beforeLine +
+          leftOfCursor +
+          "\n" + nextNum + ". " +
+          rightOfCursor +
+          renumberedRest;
+
+        onChange(block.id, "texto", built);
+
+        const newCursor = (beforeLine + leftOfCursor).length + 1 + String(nextNum).length + 2;
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = newCursor;
+        }, 0);
+        return;
+      }
+
+      // ── Lista de bullets ────────────────────────────────────
+      const bulletMatch = fullLine.match(/^-\s+(.*)/);
+      if (bulletMatch) {
+        const lineContent = bulletMatch[1];
+
+        if (lineContent.trim() === "") {
+          const removeFrom = lineStart > 0 ? lineStart - 1 : 0;
+          const removeTo = lineEnd === -1 ? value.length : lineEnd;
+          const newText = value.slice(0, removeFrom) + value.slice(removeTo);
+          onExitList(block.id, newText.trimEnd());
+          return;
+        }
+
+        const newText = beforeCursor + "\n- " + afterCursor;
+        onChange(block.id, "texto", newText);
+
+        const newCursor = beforeCursor.length + 3;
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = newCursor;
+        }, 0);
+        return;
+      }
+
+      // ── Comportamiento normal ───────────────────────────────
       onEnter(block.id);
       return;
     }
+
     if (e.key === "Backspace" && block.texto === "" && total > 1) {
       e.preventDefault();
       onDelete(block.id);
@@ -715,11 +816,10 @@ const BlockRow = ({
           onKeyDown={handleKeyDown}
           rows={1}
           placeholder={isSubtitle ? "Subtítulo..." : "Párrafo..."}
-          className={`flex-1 bg-transparent outline-none resize-none overflow-hidden leading-snug placeholder:text-gray-300 ${
-            isSubtitle
-              ? "font-bold text-[14px] text-black"
-              : "text-[13px] italic text-[#1d5da8]"
-          }`}
+          className={`flex-1 bg-transparent outline-none resize-none overflow-hidden leading-snug placeholder:text-gray-300 ${isSubtitle
+            ? "font-bold text-[14px] text-black"
+            : "text-[13px] italic text-[#1d5da8]"
+            }`}
         />
       </div>
 
@@ -780,6 +880,20 @@ export const W006 = ({
     onChange(widget.posicion, "bloques", newBloques);
   };
 
+  const handleExitList = (id: string, newTexto: string) => {
+    const idx = bloques.findIndex((b) => b.id === id);
+    const newId = genId();
+    const newBloques = [
+      ...bloques.slice(0, idx),
+      { ...bloques[idx], texto: newTexto },  // texto ya limpio
+      { id: newId, tipo: "parrafo" as const, texto: "" },
+      ...bloques.slice(idx + 1),
+    ];
+    blockRefs.current[newId] = React.createRef<HTMLTextAreaElement>();
+    pendingFocusId.current = newId;
+    onChange(widget.posicion, "bloques", newBloques);
+  };
+
   const handleEnter = (afterId: string) => {
     const idx = bloques.findIndex((b) => b.id === afterId);
     const newId = genId();
@@ -802,7 +916,7 @@ export const W006 = ({
     pendingFocusId.current = prevId ?? null;
     onChange(widget.posicion, "bloques", newBloques);
   };
-  
+
   return (
     <div className="mb-8">
       <SectionLine
@@ -819,12 +933,12 @@ export const W006 = ({
       />
 
       {showHints && (
-  <div className="text-[10px] text-gray-400 mb-3 select-none">
-    <span className="mr-3">⏎ nuevo párrafo</span>
-    <span className="mr-3">⌘B subtítulo</span>
-    <span>⌫ borrar bloque vacío</span>
-  </div>
-)}
+        <div className="text-[10px] text-gray-400 mb-3 select-none">
+          <span className="mr-3">⏎ nuevo párrafo</span>
+          <span className="mr-3">⌘B subtítulo</span>
+          <span>⌫ borrar bloque vacío</span>
+        </div>
+      )}
 
       <div className="flex flex-col">
         {bloques.map((block) => (
@@ -836,12 +950,77 @@ export const W006 = ({
             onToggleTipo={handleToggleTipo}
             onEnter={handleEnter}
             onDelete={handleDelete}
+            onExitList={handleExitList}  // ← esta línea falta
             focusRef={blockRefs.current[block.id]}
           />
         ))}
       </div>
     </div>
   );
+};
+
+const renderFormattedW006Text = (texto: string) => {
+  const lines = String(texto ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Lista numerada: 1. texto
+    if (/^\d+\.\s+/.test(line)) {
+      const items: string[] = [];
+
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\d+\.\s+/, ""));
+        i++;
+      }
+
+      elements.push(
+        <ol key={`ol-${i}`} className="list-decimal pl-6 space-y-1">
+          {items.map((item, idx) => (
+            <li key={idx}>{item}</li>
+          ))}
+        </ol>
+      );
+
+      continue;
+    }
+
+    // Bullets: - texto
+    if (/^-\s+/.test(line)) {
+      const items: string[] = [];
+
+      while (i < lines.length && /^-\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^-\s+/, ""));
+        i++;
+      }
+
+      elements.push(
+        <ul key={`ul-${i}`} className="list-disc pl-6 space-y-1">
+          {items.map((item, idx) => (
+            <li key={idx}>{item}</li>
+          ))}
+        </ul>
+      );
+
+      continue;
+    }
+
+    elements.push(
+      <p key={`p-${i}`} className="mb-1">
+        {line}
+      </p>
+    );
+
+    i++;
+  }
+
+  return <>{elements}</>;
 };
 
 /* Wrapper para mantener la misma firma que los demás render* */

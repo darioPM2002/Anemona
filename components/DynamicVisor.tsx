@@ -648,6 +648,69 @@ const WidgetRenderer: React.FC<Props> = ({
     );
   };
 
+  const renderFormattedW006Text = (texto: string) => {
+  const lines = String(texto ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    const numberedMatch = line.match(/^(\d+)\.\s+(.+)$/);
+
+if (numberedMatch) {
+  const numero = Number(numberedMatch[1]);
+  const item = numberedMatch[2];
+
+  elements.push(
+    <ol
+      key={`ol-${i}`}
+      start={numero}
+      className="list-decimal ml-8 pl-3 mb-1 space-y-1"
+    >
+      <li className="pl-1">{item}</li>
+    </ol>
+  );
+
+  i++;
+  continue;
+}
+
+    if (/^-\s+/.test(line)) {
+      const items: string[] = [];
+
+      while (i < lines.length && /^-\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^-\s+/, ""));
+        i++;
+      }
+
+      elements.push(
+        <ul key={`ul-${i}`} className="list-disc pl-6 space-y-1">
+          {items.map((item, idx) => (
+            <li key={idx}>{item}</li>
+          ))}
+        </ul>
+      );
+
+      continue;
+    }
+
+    elements.push(
+      <p key={`p-${i}`} className="mb-1">
+        {line}
+      </p>
+    );
+
+    i++;
+  }
+
+  return <>{elements}</>;
+};
+
   const renderW006Partial = (
     widget: Widget,
     bloquesParciales: any[],
@@ -679,11 +742,10 @@ const WidgetRenderer: React.FC<Props> = ({
                 className={
                   block.tipo === "subtitulo"
                     ? "font-bold text-[14px] text-black"
-                    : `text-[13px] italic text-[#1d5da8] leading-snug ${block.isContinuation ? "pl-4" : ""
-                    }`
+                    : "text-[13px] italic text-[#1d5da8] leading-snug"
                 }
               >
-                {block.texto}
+                {renderFormattedW006Text(block.texto)}
               </div>
             </div>
           ))}

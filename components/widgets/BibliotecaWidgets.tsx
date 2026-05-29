@@ -371,7 +371,7 @@ export const renderW003 = (
     ${highlight(`${widget.posicion}.campos.titulo`)}
   `}
             />
-            {"."}
+            
           </span>
         }
         note="(Opcional)"
@@ -536,7 +536,7 @@ export const renderW005 = (
     ${highlight(`${widget.posicion}.campos.titulo`)}
   `}
             />
-            {"."}
+          
           </span>
         }
       />

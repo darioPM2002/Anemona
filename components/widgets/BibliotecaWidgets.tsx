@@ -146,7 +146,7 @@ export const renderW000 = (
     { key: "DGA", label: "DGA" },
     { key: "PATROCINADOR", label: "Patrocinador" },
     { key: "CR", label: "CR" },
-    { key: "SOCIO", label: "Nombre del Socio de Negocio" },
+    { key: "SOCIO", label: "Nombre del soocio de negocio" },
     { key: "NOMBRE_INICIATIVA", label: "Nombre de la iniciativa" },
     { key: "TIPO_INICIATIVA", label: "Tipo de la iniciativa" },
   ];

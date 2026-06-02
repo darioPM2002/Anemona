@@ -453,24 +453,25 @@ window.removeEventListener("document-project-change", handleProjectChange);
                             }}
                           >
                             {/* Preview en vista colapsada: sin registrar descarga */}
-                          <ArquitecturaDiagram key={activeDocId} />
-                        </div>
-                      )}
-                      <button
-                        onClick={() => {
-                          setTab(t);
-                          onToggle();
-                        }}
-                        className="group absolute inset-0 h-full w-full bg-transparent transition hover:bg-[#EB0029]/5"
-                        title="Expandir para ver completo"
-                      >
-                        <span className="absolute bottom-2 right-2 rounded-lg bg-[#EB0029] px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition group-hover:opacity-100">
-                          Ver completo
-                        </span>
-                      </button>
+                            <ArquitecturaDiagram key={activeDocId} />
+                          </div>
+                        )}
+                        <button
+                          onClick={() => {
+                            setTab(t);
+                            onToggle();
+                          }}
+                          className="group absolute inset-0 h-full w-full bg-transparent transition hover:bg-[#EB0029]/5"
+                          title="Expandir para ver completo"
+                        >
+                          <span className="absolute bottom-2 right-2 rounded-lg bg-[#EB0029] px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition group-hover:opacity-100">
+                            Ver completo
+                          </span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
             </div>
           )}
@@ -479,70 +480,64 @@ window.removeEventListener("document-project-change", handleProjectChange);
           {expanded && (
             <>
               <div className="relative mb-5 flex items-center justify-center">
-                <div className="flex gap-2 rounded-lg bg-white px-2 py-2 shadow">
+                <div className="flex gap-6 border-b border-gray-200">
                   {(
-                    [
-                      "ERS",
-                      // OCULTAR_ANALISIS "Análisis",
-                      "Arquitectura",
-                      //OCULTAR_ANALISIS (así es como estaba antes pero quitando análisis marca error)] as const).map((t) => (
-                    ] as ("ERS" | "Análisis" | "Arquitectura")[]
-                  ).map(
-                    (
-                      t, //momentáneo
-                    ) => (
+                    ["Documento", "Arquitectura"] as const
+                  ).map((t) => {
+                    const tabValue: "ERS" | "Análisis" | "Arquitectura" = t === "Documento" ? "ERS" : t;
+                    return (
                       <button
                         key={t}
-                        onClick={() => setTab(t)}
+                        onClick={() => setTab(tabValue)}
                         className={
-                          tab === t
-                            ? "rounded-lg bg-[#EB0029] px-10 py-2 text-sm font-semibold text-white shadow"
-                            : "rounded-lg px-10 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-100"
+                          tab === tabValue
+                            ? "pb-3 text-base font-bold text-[#EB0029] border-b-2 border-[#EB0029] -mb-px transition-all"
+                            : "pb-3 text-base font-medium text-gray-400 border-b-2 border-transparent -mb-px transition-all hover:text-gray-600"
                         }
                       >
                         {t}
                       </button>
-                    ),
-                  )}
+                    );
+                  })}
                 </div>
 
                 <div className="absolute right-0 flex items-center gap-2">
                   {tab === "ERS" && (
-                  <button
-                    onClick={handleSendEmail}
-                    disabled={sendingEmail}
-                    className="group flex cursor-pointer items-center gap-2 bg-transparent p-2 transition disabled:cursor-not-allowed disabled:opacity-60"
-                    title="Enviar documento por correo"
-                  >
-                    {sendingEmail ? (
-                      <Loader2
-                        size={22}
-                        className="animate-spin text-[#EB0029]"
-                       />
-                ) : (
-                  <Mail
-                    className="text-[#EB0029] transition group-hover:text-gray-500"
-                    size={22}
-                  />
-                )}
+                    <button
+                      onClick={handleSendEmail}
+                      disabled={sendingEmail}
+                      className="group flex cursor-pointer items-center gap-2 bg-transparent p-2 transition disabled:cursor-not-allowed disabled:opacity-60"
+                      title="Enviar documento por correo"
+                    >
+                      {sendingEmail ? (
+                        <Loader2
+                          size={22}
+                          className="animate-spin text-[#EB0029]"
+                        />
+                      ) : (
+                        <Mail
+                          className="text-[#EB0029] transition group-hover:text-gray-500"
+                          size={22}
+                        />
+                      )}
 
-                <span className="font-medium text-[#EB0029] transition group-hover:text-gray-700">
-                  {sendingEmail ? "Enviando..." : "Enviar por correo"}
-                </span>
-              </button>
+                      <span className="font-medium text-[#EB0029] transition group-hover:text-gray-700">
+                        {sendingEmail ? "Enviando..." : "Enviar por correo"}
+                      </span>
+                    </button>
                   )}
-              <button
-                onClick={handleDownload}
-                className="group flex cursor-pointer items-center gap-2 bg-transparent p-2 transition"
-                title="Descargar documento"
-              >
-                <Download
-                  className="text-[#EB0029] transition group-hover:text-gray-500"
-                  size={22}
-                />
+                  <button
+                    onClick={handleDownload}
+                    className="group flex cursor-pointer items-center gap-2 bg-transparent p-2 transition"
+                    title="Descargar documento"
+                  >
+                    <Download
+                      className="text-[#EB0029] transition group-hover:text-gray-500"
+                      size={22}
+                    />
 
-                <span className="font-medium text-[#EB0029] transition group-hover:text-gray-500">
-                  Descargar
+                    <span className="font-medium text-[#EB0029] transition group-hover:text-gray-500">
+                      Descargar
                     </span>
                   </button>
                 </div>
@@ -570,10 +565,10 @@ window.removeEventListener("document-project-change", handleProjectChange);
                   >
                     {/* Vista expandida: registrar la función de descarga PDF */}
                     <ArquitecturaDiagram
-                    key={activeDocId}
-                    onRegisterDownload={(fn) => {
-                      arqDownloadRef.current = fn;
-                    }}
+                      key={activeDocId}
+                      onRegisterDownload={(fn) => {
+                        arqDownloadRef.current = fn;
+                      }}
                     />
                   </div>
                 )}

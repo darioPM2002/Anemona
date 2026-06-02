@@ -438,6 +438,7 @@ window.removeEventListener("document-project-change", handleProjectChange);
                                 key={activeDocId}
                                 widgets={widgets}
                                 changedFields={changedFields}
+                                nombrePlantilla={nombrePlantilla}
                               />
                             )}
                           </div>
@@ -558,6 +559,7 @@ window.removeEventListener("document-project-change", handleProjectChange);
                       <WidgetRenderer
                         widgets={widgets}
                         changedFields={changedFields}
+                        nombrePlantilla={nombrePlantilla}
                       />
                     )}
                   </div>

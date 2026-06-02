@@ -15,6 +15,7 @@ import { renderWChart } from "./widgets/biblioteca_chart";
 type Props = {
   widgets: Widget[];
   changedFields?: Set<string>;
+  nombrePlantilla?: string;
 };
 
 // Constantes de layout
@@ -45,6 +46,7 @@ export type BlockDef = {
 const WidgetRenderer: React.FC<Props> = ({
   widgets: initialWidgets,
   changedFields,
+  nombrePlantilla = "Levantamiento de Requerimiento",
 }) => {
   const [widgets, setWidgets] = useState<Widget[]>(
     Array.isArray(initialWidgets) ? initialWidgets : []
@@ -974,7 +976,7 @@ if (numberedMatch) {
               <div className="text-[22px] font-semibold leading-none text-[#7c7c7c]">
                 <span>Formato Estándar | </span>
                 <span className="font-normal">
-                  Levantamiento de Requerimiento
+                  {nombrePlantilla}
                 </span>
               </div>
               <img

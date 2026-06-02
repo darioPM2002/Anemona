@@ -287,7 +287,7 @@ window.removeEventListener("document-project-change", handleProjectChange);
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ doc_id: docId, user_name: userName }),
+        body: JSON.stringify({ doc_id: docId, user_name: userName,}),
       });
 
       const data = await response.json();
@@ -339,7 +339,7 @@ window.removeEventListener("document-project-change", handleProjectChange);
       const res = await fetch(`${API_BASE}/widgets/exportar-word`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ doc_id: docId, widgets }),
+        body: JSON.stringify({ doc_id: docId, widgets, nombre_plantilla: nombrePlantilla, }),
       });
 
       if (!res.ok) throw new Error(`Error ${res.status}`);

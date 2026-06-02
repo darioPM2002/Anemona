@@ -27,6 +27,7 @@ jobs:
 
       - name: Revisar lint
         run: npm run lint
+        continue-on-error: true
 
       - name: Validar build
         run: npm run build

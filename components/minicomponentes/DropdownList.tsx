@@ -45,7 +45,7 @@ export default function DropdownList({
 
   return (
     <div className="relative w-full" ref={ref}>
-      <div className="bg-gray-100 px-4 pt-3 pb-2">
+      <div className="bg-gray-100 px-4 pt-3 pb-2 rounded-t-sm !rounded-b-none">
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm text-[#5B6670] min-h-[24px] flex items-center overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-gray-700">
             {loading ? "Cargando..." : selectedLabel || placeholder}

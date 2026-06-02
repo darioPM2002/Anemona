@@ -323,6 +323,13 @@ setTotalProyectos(data.total ?? proyectosConPermiso.length);
             {`${nombre?.split("_")[0] || ""} ${apellidopaterno || ""}`}
           </p>
         </div>
+        {/* Buscar con IA — input-style, above filters */}
+        <button
+          onClick={() => setShowAIModal(true)}
+          className="mt-6 flex w-full items-center justify-between rounded-sm bg-gray-100 px-4 py-3 text-sm text-gray-400 transition hover:bg-gray-200">
+          <span>Buscar con IA</span>
+          <img src="/images/Buscar.png" alt="Buscar con IA" className="h-5 w-5 object-contain opacity-50" />
+        </button>
 
         <div className="flex items-center gap-2 py-5 text-sm font-semibold text-gray-500">
           <Filter size={14} />
@@ -334,23 +341,16 @@ setTotalProyectos(data.total ?? proyectosConPermiso.length);
           <TextInput value={filtroNombre} onChange={setFiltroNombre} placeholder="ProyectoIA" label="Nombre de Proyecto" labelVariant="light" />
           <div>
             <label className="mb-1 block text-xs text-gray-500">Fecha</label>
+            <div className="overflow-hidden rounded-t-sm rounded-b-none">
             <CustomDatePicker value={filtroFecha} onChange={setFiltroFecha} />
+            </div>
           </div>
           <TextInput value={filtroArea} onChange={setFiltroArea} placeholder="TI" label="Área" labelVariant="light" />
         </div>
 
-        <button onClick={limpiarFiltros} className="mt-10 rounded-lg bg-[#EB0029] px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700">
+        <button onClick={limpiarFiltros} className="mt-10 rounded-sm bg-[#EB0029] px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700">
           Limpiar
         </button>
-
-        <button onClick={() => setShowAIModal(true)} className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-gray-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-600">
-          <img src="/images/Buscar.png" alt="Buscar con IA" className="h-4 w-4 object-contain" />
-          <span>Buscar con IA</span>
-        </button>
-
-        <div className="mt-auto flex justify-center pt-4">
-          <img src="/images/banortelogo.png" alt="Banorte" className="h-12" />
-        </div>
       </aside>
 
       {/* ── MAIN ── */}

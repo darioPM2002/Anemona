@@ -159,6 +159,20 @@ setProjects(proyectosArray);
 
   // Botón PROVICIONAL de logout para limpiar el localStorage y redirigir al login
   const handleLogout = () => {
+
+    //Liberar lock del proyecto activo antes de hacer logout
+    const folio = sessionStorage.getItem("project_folio");
+    const token = localStorage.getItem("token");
+    if (folio && token) {
+      // keepalive true para que el fetch llegue aunque el componente se desmonte
+      fetch(`${API_URL}/proyectos/${folio}/lock`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+        keepalive: true,
+      }).catch(() => {});
+    }
+
+
     localStorage.removeItem("token");
     localStorage.removeItem("idusuario");
     localStorage.removeItem("nombre");
@@ -172,6 +186,10 @@ setProjects(proyectosArray);
     sessionStorage.removeItem("chat_user_id");
     sessionStorage.removeItem("chat_session_id");
     sessionStorage.removeItem("project_id");
+    sessionStorage.removeItem("project_folio");
+    sessionStorage.removeItem("project_name");
+    sessionStorage.removeItem("logged_user_id");
+    sessionStorage.removeItem("project_folio_anterior");
 
     router.push("/");
   };

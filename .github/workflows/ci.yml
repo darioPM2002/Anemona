@@ -1,0 +1,33 @@
+name: CI Anemona
+
+on:
+  pull_request:
+    branches:
+      - deploy
+  push:
+    branches:
+      - deploy
+
+jobs:
+  validar-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Revisar lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Validar build
+        run: npm run build

@@ -53,7 +53,11 @@ export const renderWChart = (
       <div className="mb-4 mt-6">
         <div className="flex items-start gap-3 border-t-2 border-black pt-2 w-full">
           <span className="text-[18px] shrink-0">{widget.posicion}.</span>
-          <span className="font-bold text-[18px]">{titulo}</span>
+          <EditableText
+            value={titulo}
+            onChange={(v) => onChange(widget.posicion, "titulo", v)}
+            className="font-bold text-[18px]"
+          />
           <span className="text-[11px] shrink-0 ml-2 mt-1 text-red-600">(Obligatorio)</span>
         </div>
       </div>

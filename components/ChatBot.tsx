@@ -249,7 +249,7 @@ export default function ChatBot() {
           headers: { Authorization: `Bearer ${getToken()}` },
         });
       } catch {}
-    }, 90 * 1000); //cada 90s
+    }, 90 * 1000); // se activa cada 90s
   }, [stopHeartbeat]);
 
   const releaseProject = useCallback(async (folio: number) => {

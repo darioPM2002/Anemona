@@ -615,7 +615,7 @@ const WidgetRenderer: React.FC<Props> = ({
             <thead>
               <tr className="bg-[#133b73] text-white">
                 {headers.map((h: any) => (
-                  <th key={h.key} className="border px-3 py-1 min-w-[120px]">
+                  <th key={h.key} className="border px-3 py-1 min-w-[120px] whitespace-normal break-words">
                     {h.label}
                   </th>
                 ))}
@@ -781,7 +781,7 @@ if (numberedMatch) {
               {fila.celdas.map((cel: any, celIdx: number) => (
                 <div
                   key={celIdx}
-                  className="px-2 py-1"
+                  className="px-2 py-1 break-words min-w-0"
                   style={{
                     flex: 1,
                     borderRight: celIdx < fila.celdas.length - 1 ? "1px solid black" : "none",

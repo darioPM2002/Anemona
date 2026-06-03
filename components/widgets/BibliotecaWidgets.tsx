@@ -39,12 +39,17 @@ export const EditableTitle = ({
 
   return (
     <textarea
-      ref={ref}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      rows={1}
-      className={`bg-transparent outline-none resize-none overflow-hidden w-full leading-tight ${className}`}
-    />
+  ref={ref}
+  value={value}
+  onChange={(e) => onChange(e.target.value)}
+  rows={1}
+  style={{
+    width: className.includes("border-dashed")
+      ? `${Math.max(value.length + 1, 4)}ch`
+      : undefined,
+  }}
+  className={`bg-transparent outline-none resize-none overflow-hidden max-w-full leading-tight ${className}`}
+/>
   );
 };
 
@@ -64,12 +69,17 @@ export const EditableText = ({
 
   return (
     <textarea
-      ref={ref}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={`w-full bg-transparent outline-none resize-none overflow-hidden ${className}`}
-      rows={1}
-    />
+  ref={ref}
+  value={value}
+  onChange={(e) => onChange(e.target.value)}
+  style={{
+    width: className.includes("border-dashed")
+      ? `${Math.max(value.length + 1, 4)}ch`
+      : undefined,
+  }}
+  className={`max-w-full bg-transparent outline-none resize-none overflow-hidden ${className}`}
+  rows={1}
+/>
   );
 };
 
@@ -115,9 +125,16 @@ function SubSection({
   noteColor?: string;
 }) {
   return (
-    <div className="mb-4 mt-5 flex items-center gap-2">
-      {titleNode ?? <span className="text-[18px]">{title}</span>}
-      {note && <span className={`text-[11px] ${noteColor}`}>{note}</span>}
+    <div className="mb-4 mt-5 flex items-start gap-2 w-full">
+      <div className="flex-1 min-w-0">
+        {titleNode ?? <span className="text-[18px]">{title}</span>}
+      </div>
+
+      {note && (
+        <span className={`text-[11px] shrink-0 mt-1 ${noteColor}`}>
+          {note}
+        </span>
+      )}
     </div>
   );
 }
@@ -361,18 +378,18 @@ export const renderW003 = (
     <div className="mb-8">
       <SubSection
         titleNode={
-          <span className="flex items-center gap-1 text-[18px]">
-            {`${widget.posicion}`}
-            <input
+          <div className="flex items-start gap-2 w-full text-[18px]">
+            <span className="shrink-0">{widget.posicion}</span>
+
+            <EditableTitle
               value={titulo}
-              onChange={(e) => handleTituloChange(e.target.value)}
-              className={`bg-transparent outline-none font-semibold
-    ${showControls ? "border-b border-dashed border-gray-400 focus:border-blue-500" : ""}
-    ${highlight(`${widget.posicion}.campos.titulo`)}
-  `}
+              onChange={handleTituloChange}
+              className={`font-semibold min-w-0
+          ${showControls ? "border-b border-dashed border-gray-400 focus:border-blue-500" : ""}
+          ${highlight(`${widget.posicion}.campos.titulo`)}
+        `}
             />
-            
-          </span>
+          </div>
         }
         note="(Opcional)"
         noteColor="text-red-600"
@@ -527,17 +544,17 @@ export const renderW005 = (
     <div className="mb-8">
       <SubSection
         titleNode={
-          <span className="flex items-center gap-1 text-[18px]">
-            {`${widget.posicion}`}
-            <input
+          <div className="flex items-start gap-2 w-full text-[18px]">
+            <span className="shrink-0">{widget.posicion}</span>
+
+            <EditableTitle
               value={titulo}
-              onChange={(e) => handleTituloChange(e.target.value)}
-              className={`bg-transparent outline-none border-b border-dashed border-gray-400 focus:border-blue-500 font-semibold
-    ${highlight(`${widget.posicion}.campos.titulo`)}
-  `}
+              onChange={handleTituloChange}
+              className={`font-semibold min-w-0 border-b border-dashed border-gray-400 focus:border-blue-500
+          ${highlight(`${widget.posicion}.campos.titulo`)}
+        `}
             />
-          
-          </span>
+          </div>
         }
       />
 

@@ -160,7 +160,7 @@ setProjects(proyectosArray);
   // Botón PROVICIONAL de logout para limpiar el localStorage y redirigir al login
   const handleLogout = () => {
 
-    //Liberar lock del proyecto activo antes de hacer logout
+   //Liberar lock del proyecto activo antes de hacer logout
     const folio = sessionStorage.getItem("project_folio");
     const token = localStorage.getItem("token");
     if (folio && token) {
@@ -171,7 +171,6 @@ setProjects(proyectosArray);
         keepalive: true,
       }).catch(() => {});
     }
-
 
     localStorage.removeItem("token");
     localStorage.removeItem("idusuario");
@@ -190,6 +189,7 @@ setProjects(proyectosArray);
     sessionStorage.removeItem("project_name");
     sessionStorage.removeItem("logged_user_id");
     sessionStorage.removeItem("project_folio_anterior");
+
 
     router.push("/");
   };

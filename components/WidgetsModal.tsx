@@ -431,7 +431,7 @@ export default function WidgetsModal({ isOpen, onClose, widgets, onWidgetsChange
                               ${draggingDocIndex === i ? "opacity-40 scale-[0.98]" : ""}
                             `}
                           >
-                            <div className={`absolute -top-3 left-4 text-white text-[10px] font-semibold px-3 py-[2px] rounded-full shadow-sm z-10
+                            <div className={`absolute -top-3 left-4 text-white text-[10px] font-semibold px-3 py-[2px] rounded-full shadow-sm z-10 max-w-[80%] truncate
                               ${isNew ? "bg-yellow-500" : "bg-blue-500"}`}>
                               {widget.titulo}
                               {isNew && <span className="ml-1 opacity-75">· unsaved</span>}
@@ -531,7 +531,9 @@ export default function WidgetsModal({ isOpen, onClose, widgets, onWidgetsChange
                   >
                     <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50">
                       <span className="text-gray-300 text-base select-none">⠿</span>
-                      <span className="text-sm font-semibold text-gray-700">{widget.titulo}</span>
+                      <span className="text-sm font-semibold text-gray-700 break-words min-w-0 flex-1">
+                        {widget.titulo}
+                      </span>
                     </div>
                     <ScaledWidgetPreview widget={widget as unknown as Widget} />
                   </div>

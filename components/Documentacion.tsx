@@ -102,6 +102,7 @@ const DOC_NAMES: Record<"ERS" | "Análisis" | "Arquitectura", string> = {
 
   const prevRawDataRef = useRef<any>(null);
   const prevDocIdRef = useRef<string>(""); 
+  const widgetsHashRef = useRef<string>("");
 
   const getActiveProjectId = () => {
     if (typeof window === "undefined") return "";
@@ -187,15 +188,20 @@ if (suppressHighlight) {
   sessionStorage.removeItem("suppress_ers_highlight");
 }
 
-  // Si cambiaste de proyecto, NO compares contra el anterior.
-  // Solo carga el documento limpio.
-  if (isDifferentProject) {
-    prevDocIdRef.current = docId;
-    prevRawDataRef.current = json.data;
-    setChangedFields(new Set());
-    setWidgets(mapDataToWidgets(json.data));
-    return;
+          // Si cambiaste de proyecto, NO compares contra el anterior.
+          // Solo carga el documento limpio.
+          if (isDifferentProject) {
+  prevDocIdRef.current = docId;
+  prevRawDataRef.current = json.data;
+  const newWidgets = mapDataToWidgets(json.data);
+  const newHash = JSON.stringify(newWidgets);
+  if (newHash !== widgetsHashRef.current) {
+    widgetsHashRef.current = newHash;
+    setWidgets(newWidgets);
   }
+  setChangedFields(new Set());
+  return;
+}
 
   // Solo highlightear cuando explícitamente venga de "Guardar" o "Enviar".
   const changes =
@@ -217,7 +223,12 @@ if (suppressHighlight) {
   }
 
   prevRawDataRef.current = json.data;
-  setWidgets(mapDataToWidgets(json.data));
+const newWidgets = mapDataToWidgets(json.data);
+const newHash = JSON.stringify(newWidgets);
+if (newHash !== widgetsHashRef.current) {
+  widgetsHashRef.current = newHash;
+  setWidgets(newWidgets);
+}
 }
       } catch (error) {
         console.error("Error cargando ERS:", error);

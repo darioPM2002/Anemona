@@ -260,14 +260,13 @@ const WidgetRenderer: React.FC<Props> = ({
   // Así el reset de paginación no se dispara al escribir.
 
   const paginationKey = useMemo(() => {
-    return JSON.stringify(
-      sortedWidgets.map((w) => ({
-        id_widget: w.id_widget,
-        posicion: w.posicion,
-        campos: w.campos,
-      }))
-    );
-  }, [sortedWidgets]);
+  return JSON.stringify(
+    sortedWidgets.map((w) => ({
+      id_widget: w.id_widget,
+      posicion: w.posicion,
+    }))
+  );
+}, [sortedWidgets]);
 
   const fitsInCurrentPage = (
     currentHeight: number,

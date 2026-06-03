@@ -19,18 +19,9 @@ type Props = {
   onPaginationDone?: () => void;
 };
 
-// Constantes de layout
-// 816px = ancho de hoja carta
-// 110px header + 90px footer = 200px fijos
-// 856px = área de contenido entre header y footer
-// 808px = área útil (856 - 24 paddingTop - 24 paddingBottom)
 const PAGE_CONTENT_HEIGHT = 856;
-
 const CONTENT_PADDING_TOP = 24;
 const CONTENT_PADDING_BOTTOM = 80;
-
-// Zona invisible de seguridad antes del footer.
-// Si un bloque tocaría esta zona, se manda a la siguiente página.
 const PAGE_BREAK_SAFETY = 40;
 
 export const USABLE_HEIGHT =
@@ -43,9 +34,16 @@ export type BlockDef = {
   id: string;
   node?: React.ReactNode;
   chunkType?: "w003" | "w005" | "w006";
-  chunkRowIndices?: number[];    // índices, no datos
+  chunkRowIndices?: number[];
   chunkShowTitle?: boolean;
   chunkWidgetPos?: number;
+};
+
+// ── Helper global: convierte cualquier valor a string seguro para React ──
+const toStr = (v: any): string => {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "object") return (v as any).valor ?? JSON.stringify(v);
+  return String(v);
 };
 
 const WidgetRenderer: React.FC<Props> = ({
@@ -61,20 +59,18 @@ const WidgetRenderer: React.FC<Props> = ({
   const [pages, setPages] = useState<BlockDef[][]>([]);
   const [measured, setMeasured] = useState(false);
   const measureRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const rowRefs = useRef<{ [widgetPos: number]: (HTMLDivElement | null)[] }>({}); // ayuda al algoritmo greedy a separar por linean no widgets del widget 005
+  const rowRefs = useRef<{ [widgetPos: number]: (HTMLDivElement | null)[] }>({});
   const w003RowRefs = useRef<{ [widgetPos: number]: (HTMLTableRowElement | null)[] }>({});
   const w006BlockRefs = useRef<{ [widgetPos: number]: (HTMLDivElement | null)[] }>({});
   const suppressSpinnerRef = useRef(false);
 
-  const [showError, setShowError] = useState(false); // Pop up error al guardar plantilla
-  const [showSuccess, setShowSuccess] = useState(false); // Pop up exito al guardar plantilla
-  const [localChangedFields, setLocalChangedFields] = useState<Set<string>>(new Set()); // highlight 
+  const [showError, setShowError] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [localChangedFields, setLocalChangedFields] = useState<Set<string>>(new Set());
 
-  // Actualiza valores de campos sin tocar la estructura de widgets y highlightea los cambios 
   const setNestedValue = (obj: any, path: string, value: any) => {
     const keys = path.split(".");
     const clone = Array.isArray(obj) ? [...obj] : { ...obj };
-
     let current = clone;
 
     keys.forEach((key, index) => {
@@ -86,7 +82,6 @@ const WidgetRenderer: React.FC<Props> = ({
         current[key] = value;
       } else {
         const existing = current[key];
-
         if (Array.isArray(existing)) {
           current[key] = [...existing];
         } else if (existing && typeof existing === "object") {
@@ -94,7 +89,6 @@ const WidgetRenderer: React.FC<Props> = ({
         } else {
           current[key] = shouldBeArray ? [] : {};
         }
-
         current = current[key];
       }
     });
@@ -122,31 +116,26 @@ const WidgetRenderer: React.FC<Props> = ({
     setWidgets((prev) =>
       prev.map((w) => {
         if (w.posicion !== posicion) return w;
-
         return {
           ...w,
           campos: key.includes(".")
             ? setNestedValue(w.campos || {}, key, value)
             : { ...w.campos, [key]: value },
         };
-      }),
+      })
     );
   };
 
-  // Widgets ordenados por posición
   const sortedWidgets = useMemo(
     () => [...widgets].sort((a, b) => a.posicion - b.posicion),
-    [widgets],
+    [widgets]
   );
 
-  // Resalta en amarillo los campos que cambió el chat
-  // El path viene de detectChanges en Documentacion.tsx, ej: "w_000.campos.SOLICITANTE"
   const isHighlighted = (path: string) => {
     const allChanged = [
       ...(changedFields ? Array.from(changedFields) : []),
       ...Array.from(localChangedFields),
     ];
-
     return allChanged.some(
       (changedPath) =>
         changedPath === path ||
@@ -160,7 +149,6 @@ const WidgetRenderer: React.FC<Props> = ({
       ? "!bg-yellow-200 transition-all duration-700 rounded px-1"
       : "";
 
-  // Guarda los widgets editados en Firestore
   const handleSave = async () => {
     const docId = sessionStorage.getItem("project_id") || "";
     if (!docId) {
@@ -176,7 +164,7 @@ const WidgetRenderer: React.FC<Props> = ({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(widgets),
-        },
+        }
       );
       if (!res.ok) {
         setShowError(true);
@@ -192,26 +180,16 @@ const WidgetRenderer: React.FC<Props> = ({
     }
   };
 
-  // Renderiza el widget correcto según su id
   const renderWidget = (widget: Widget) => {
     switch (widget.id_widget) {
-      case "w_000":
-        return renderW000(widget, handleChange, highlight); //
-      case "w_001":
-        return renderW001(widget, handleChange, highlight); //
-      case "w_002":
-        return renderW002(widget, handleChange, highlight); //
-      case "w_003":
-        return renderW003(widget, handleChange, highlight, false); //
-      case "w_004":
-        return renderWChart(widget, handleChange); //
-      case "w_005":
-        return renderW005(widget, handleChange, highlight);
-      case "w_006":
-        return renderW006(widget, handleChange, highlight);
-
-      default:
-        return null;
+      case "w_000": return renderW000(widget, handleChange, highlight);
+      case "w_001": return renderW001(widget, handleChange, highlight);
+      case "w_002": return renderW002(widget, handleChange, highlight);
+      case "w_003": return renderW003(widget, handleChange, highlight, false);
+      case "w_004": return renderWChart(widget, handleChange);
+      case "w_005": return renderW005(widget, handleChange, highlight);
+      case "w_006": return renderW006(widget, handleChange, highlight);
+      default: return null;
     }
   };
 
@@ -220,35 +198,26 @@ const WidgetRenderer: React.FC<Props> = ({
 
     return bloques.flatMap((block: any, blockIdx: number) => {
       const texto = String(block.texto ?? "");
-
-      // Primero respeta saltos manuales con Enter
       const manualLines = texto
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(Boolean);
 
-      // Si una línea sigue siendo muy larga, la divide en pedazos más pequeños
       const lineasDivididas = manualLines.flatMap((line) => {
         if (block.tipo === "subtitulo") return [line];
 
         const maxChars = 115;
         const partes: string[] = [];
-
         let restante = line;
 
         while (restante.length > maxChars) {
           let corte = restante.lastIndexOf(" ", maxChars);
-
           if (corte <= 0) corte = maxChars;
-
           partes.push(restante.slice(0, corte).trim());
           restante = restante.slice(corte).trim();
         }
 
-        if (restante.length > 0) {
-          partes.push(restante);
-        }
-
+        if (restante.length > 0) partes.push(restante);
         return partes;
       });
 
@@ -262,46 +231,26 @@ const WidgetRenderer: React.FC<Props> = ({
     });
   };
 
-
-  // Clave que identifica la estructura de widgets (no sus valores).
-  // Solo cambia cuando se agrega/quita un widget, no cuando se edita un campo.
-  // Así el reset de paginación no se dispara al escribir.
-
   const paginationKey = useMemo(() => {
     return JSON.stringify(
-      sortedWidgets.map((w) => ({
-        id_widget: w.id_widget,
-        posicion: w.posicion,
-      }))
+      sortedWidgets.map((w) => ({ id_widget: w.id_widget, posicion: w.posicion }))
     );
   }, [sortedWidgets]);
 
-  const fitsInCurrentPage = (
-    currentHeight: number,
-    nextHeight: number
-  ) => {
-    return currentHeight + nextHeight <= USABLE_HEIGHT;
-  };
+  const fitsInCurrentPage = (currentHeight: number, nextHeight: number) =>
+    currentHeight + nextHeight <= USABLE_HEIGHT;
 
-
-  // Resetea paginación cuando cambia la estructura de widgets
   useEffect(() => {
     setMeasured(false);
     setPages([]);
   }, [paginationKey]);
 
-  // Sincroniza widgets internos cuando Documentacion pasa nuevos props
-  // (ej: al cambiar de proyecto o recibir respuesta del chat)
   useEffect(() => {
     const newWidgets = Array.isArray(initialWidgets) ? initialWidgets : [];
     setWidgets(newWidgets);
     setLocalChangedFields(new Set());
   }, [initialWidgets]);
 
-  // Algoritmo de paginación greedy:
-  // - measureRefs[0] = párrafo introductorio
-  // - measureRefs[i+1] = widget i
-  // Acumula bloques hasta superar USABLE_HEIGHT, luego abre nueva página
   useEffect(() => {
     if (measured) return;
 
@@ -327,43 +276,29 @@ const WidgetRenderer: React.FC<Props> = ({
         sortedWidgets.forEach((widget, i) => {
           const h = heights[i + 1];
 
-          // W003 — partir tabla por filas
+          // W003
           if (widget.id_widget === "w_003") {
             const filas: any[] = widget.campos?.filas ?? [];
 
             if (filas.length === 0) {
-              const block: BlockDef = {
-                id: `${widget.id_widget}-${widget.posicion}`,
-                node: renderWidget(widget),
-              };
-
+              const block: BlockDef = { id: `${widget.id_widget}-${widget.posicion}`, node: renderWidget(widget) };
               if (!fitsInCurrentPage(currentHeight, h) && currentPage.length > 0) {
-                result.push(currentPage);
-                currentPage = [block];
-                currentHeight = h;
+                result.push(currentPage); currentPage = [block]; currentHeight = h;
               } else {
-                currentPage.push(block);
-                currentHeight += h;
+                currentPage.push(block); currentHeight += h;
               }
-
               return;
             }
-            const rowHeights = (w003RowRefs.current[widget.posicion] ?? []).map(
-              (el) => el?.offsetHeight ?? 0
-            );
 
+            const rowHeights = (w003RowRefs.current[widget.posicion] ?? []).map((el) => el?.offsetHeight ?? 0);
             const TITLE_H = 70;
             const HEADER_H = 34;
-
             let currentChunk: number[] = [];
             let chunkHeight = TITLE_H + HEADER_H;
             let isFirst = true;
 
             const flushChunk = () => {
               if (currentChunk.length === 0) return;
-
-              const chunkFilas = currentChunk.map((idx) => filas[idx]);
-
               currentPage.push({
                 id: `${widget.id_widget}-${widget.posicion}-chunk-${currentChunk[0]}`,
                 chunkType: "w003",
@@ -371,7 +306,6 @@ const WidgetRenderer: React.FC<Props> = ({
                 chunkShowTitle: isFirst,
                 chunkWidgetPos: widget.posicion,
               });
-
               currentHeight += chunkHeight;
               currentChunk = [];
               chunkHeight = HEADER_H;
@@ -380,31 +314,12 @@ const WidgetRenderer: React.FC<Props> = ({
 
             filas.forEach((_, rowIdx) => {
               const rh = rowHeights[rowIdx] ?? 34;
-
-              // Si todavía no hay filas en este pedazo y ni el título + header + primera fila caben,
-              // manda TODO el widget a la siguiente página antes de agregar la fila.
-              if (
-                currentChunk.length === 0 &&
-                !fitsInCurrentPage(currentHeight, chunkHeight + rh) &&
-                currentPage.length > 0
-              ) {
-                result.push(currentPage);
-                currentPage = [];
-                currentHeight = 0;
+              if (currentChunk.length === 0 && !fitsInCurrentPage(currentHeight, chunkHeight + rh) && currentPage.length > 0) {
+                result.push(currentPage); currentPage = []; currentHeight = 0;
               }
-
-              // Si ya hay filas y la siguiente ya no cabe,
-              // corta aquí y continúa en la siguiente página.
-              if (
-                currentChunk.length > 0 &&
-                !fitsInCurrentPage(currentHeight, chunkHeight + rh)
-              ) {
-                flushChunk();
-                result.push(currentPage);
-                currentPage = [];
-                currentHeight = 0;
+              if (currentChunk.length > 0 && !fitsInCurrentPage(currentHeight, chunkHeight + rh)) {
+                flushChunk(); result.push(currentPage); currentPage = []; currentHeight = 0;
               }
-
               currentChunk.push(rowIdx);
               chunkHeight += rh;
             });
@@ -413,43 +328,28 @@ const WidgetRenderer: React.FC<Props> = ({
             return;
           }
 
-          // W006 — partir por bloques internos: subtítulos, párrafos y por líneas internas
+          // W006
           if (widget.id_widget === "w_006") {
             const lineas = getW006LineItems(widget);
 
             if (lineas.length === 0) {
-              const block: BlockDef = {
-                id: `${widget.id_widget}-${widget.posicion}`,
-                node: renderWidget(widget),
-              };
-
+              const block: BlockDef = { id: `${widget.id_widget}-${widget.posicion}`, node: renderWidget(widget) };
               if (!fitsInCurrentPage(currentHeight, h) && currentPage.length > 0) {
-                result.push(currentPage);
-                currentPage = [block];
-                currentHeight = h;
+                result.push(currentPage); currentPage = [block]; currentHeight = h;
               } else {
-                currentPage.push(block);
-                currentHeight += h;
+                currentPage.push(block); currentHeight += h;
               }
-
               return;
             }
 
-            const lineHeights = (w006BlockRefs.current[widget.posicion] ?? []).map(
-              (el) => el?.offsetHeight ?? 0
-            );
-
+            const lineHeights = (w006BlockRefs.current[widget.posicion] ?? []).map((el) => el?.offsetHeight ?? 0);
             const TITLE_H = 70;
-
             let currentChunk: number[] = [];
             let chunkHeight = TITLE_H;
             let isFirst = true;
 
             const flushChunk = () => {
               if (currentChunk.length === 0) return;
-
-              const chunkLineas = currentChunk.map((idx) => lineas[idx]);
-
               currentPage.push({
                 id: `${widget.id_widget}-${widget.posicion}-chunk-${currentChunk[0]}`,
                 chunkType: "w006",
@@ -457,7 +357,6 @@ const WidgetRenderer: React.FC<Props> = ({
                 chunkShowTitle: isFirst,
                 chunkWidgetPos: widget.posicion,
               });
-
               currentHeight += chunkHeight;
               currentChunk = [];
               chunkHeight = 0;
@@ -466,31 +365,12 @@ const WidgetRenderer: React.FC<Props> = ({
 
             lineas.forEach((_, lineIdx) => {
               const lh = lineHeights[lineIdx] ?? 22;
-
-              // Si todavía no hay líneas en este chunk, pero el título + primera línea
-              // ya no caben en la página actual, manda el widget a una página nueva.
-              if (
-                currentChunk.length === 0 &&
-                !fitsInCurrentPage(currentHeight, chunkHeight + lh) &&
-                currentPage.length > 0
-              ) {
-                result.push(currentPage);
-                currentPage = [];
-                currentHeight = 0;
+              if (currentChunk.length === 0 && !fitsInCurrentPage(currentHeight, chunkHeight + lh) && currentPage.length > 0) {
+                result.push(currentPage); currentPage = []; currentHeight = 0;
               }
-
-              // Si ya hay líneas en el chunk y la siguiente ya no cabe,
-              // corta aquí y continúa en la siguiente página.
-              if (
-                currentChunk.length > 0 &&
-                !fitsInCurrentPage(currentHeight, chunkHeight + lh)
-              ) {
-                flushChunk();
-                result.push(currentPage);
-                currentPage = [];
-                currentHeight = 0;
+              if (currentChunk.length > 0 && !fitsInCurrentPage(currentHeight, chunkHeight + lh)) {
+                flushChunk(); result.push(currentPage); currentPage = []; currentHeight = 0;
               }
-
               currentChunk.push(lineIdx);
               chunkHeight += lh;
             });
@@ -499,43 +379,28 @@ const WidgetRenderer: React.FC<Props> = ({
             return;
           }
 
-          // W005 — partir por filas completas, sin dividir celdas internas
+          // W005
           if (widget.id_widget === "w_005") {
             const filas: any[] = widget.campos?.filas ?? [];
 
             if (filas.length === 0) {
-              const block: BlockDef = {
-                id: `${widget.id_widget}-${widget.posicion}`,
-                node: renderWidget(widget),
-              };
-
+              const block: BlockDef = { id: `${widget.id_widget}-${widget.posicion}`, node: renderWidget(widget) };
               if (!fitsInCurrentPage(currentHeight, h) && currentPage.length > 0) {
-                result.push(currentPage);
-                currentPage = [block];
-                currentHeight = h;
+                result.push(currentPage); currentPage = [block]; currentHeight = h;
               } else {
-                currentPage.push(block);
-                currentHeight += h;
+                currentPage.push(block); currentHeight += h;
               }
-
               return;
             }
 
-            const rowHeights = (rowRefs.current[widget.posicion] ?? []).map(
-              (el) => el?.offsetHeight ?? 0
-            );
-
+            const rowHeights = (rowRefs.current[widget.posicion] ?? []).map((el) => el?.offsetHeight ?? 0);
             const TITLE_H = 40;
-
             let currentChunk: number[] = [];
             let chunkHeight = TITLE_H;
             let isFirst = true;
 
             const flushChunk = () => {
               if (currentChunk.length === 0) return;
-
-              const chunkFilas = currentChunk.map((idx) => filas[idx]);
-
               currentPage.push({
                 id: `${widget.id_widget}-${widget.posicion}-linechunk-${currentChunk[0]}`,
                 chunkType: "w005",
@@ -551,29 +416,12 @@ const WidgetRenderer: React.FC<Props> = ({
 
             filas.forEach((_, rowIdx) => {
               const rh = rowHeights[rowIdx] ?? 30;
-
-              // Si el título + primera fila ya no caben, empieza este widget en nueva página
-              if (
-                currentChunk.length === 0 &&
-                !fitsInCurrentPage(currentHeight, chunkHeight + rh) &&
-                currentPage.length > 0
-              ) {
-                result.push(currentPage);
-                currentPage = [];
-                currentHeight = 0;
+              if (currentChunk.length === 0 && !fitsInCurrentPage(currentHeight, chunkHeight + rh) && currentPage.length > 0) {
+                result.push(currentPage); currentPage = []; currentHeight = 0;
               }
-
-              // Si ya hay filas y la siguiente no cabe, corta antes de esa fila
-              if (
-                currentChunk.length > 0 &&
-                !fitsInCurrentPage(currentHeight, chunkHeight + rh)
-              ) {
-                flushChunk();
-                result.push(currentPage);
-                currentPage = [];
-                currentHeight = 0;
+              if (currentChunk.length > 0 && !fitsInCurrentPage(currentHeight, chunkHeight + rh)) {
+                flushChunk(); result.push(currentPage); currentPage = []; currentHeight = 0;
               }
-
               currentChunk.push(rowIdx);
               chunkHeight += rh;
             });
@@ -582,29 +430,22 @@ const WidgetRenderer: React.FC<Props> = ({
             return;
           }
 
-          // Resto de widgets — comportamiento original
+          // Resto
           const node = renderWidget(widget);
           if (!node) return;
 
-          const block: BlockDef = {
-            id: `${widget.id_widget}-${widget.posicion}`,
-            node: null,
-          };
-
+          const block: BlockDef = { id: `${widget.id_widget}-${widget.posicion}`, node: null };
           if (!fitsInCurrentPage(currentHeight, h) && currentPage.length > 0) {
-            result.push(currentPage);
-            currentPage = [block];
-            currentHeight = h;
+            result.push(currentPage); currentPage = [block]; currentHeight = h;
           } else {
-            currentPage.push(block);
-            currentHeight += h;
+            currentPage.push(block); currentHeight += h;
           }
         });
 
         if (currentPage.length > 0) result.push(currentPage);
         setPages(result);
         setMeasured(true);
-        suppressSpinnerRef.current = false;  // ← agregar aquí
+        suppressSpinnerRef.current = false;
         onPaginationDone?.();
       });
     });
@@ -612,21 +453,17 @@ const WidgetRenderer: React.FC<Props> = ({
     return () => cancelAnimationFrame(raf);
   }, [sortedWidgets, measured]);
 
-  const renderW003Partial = (
-    widget: Widget,
-    filasParciales: any[],
-    showTitle: boolean
-  ) => {
-    const campos = widget.campos || {};
+  // ── Renders parciales ──
 
+  const renderW003Partial = (widget: Widget, filasParciales: any[], showTitle: boolean) => {
+    const campos = widget.campos || {};
     const defaultHeaders = campos.filas?.[0]
       ? Object.keys(campos.filas[0]).map((k: string) => ({ key: k, label: k }))
       : [
-        { key: "TIPO", label: "Riesgo" },
-        { key: "PROBABLE_PERDIDA", label: "Probable Pérdida" },
-        { key: "JUSTIFICACION", label: "Justificación" },
-      ];
-
+          { key: "TIPO", label: "Riesgo" },
+          { key: "PROBABLE_PERDIDA", label: "Probable Pérdida" },
+          { key: "JUSTIFICACION", label: "Justificación" },
+        ];
     const headers = campos.headers || defaultHeaders;
     const titulo = campos.titulo || widget.titulo || "Riesgos";
 
@@ -641,7 +478,6 @@ const WidgetRenderer: React.FC<Props> = ({
             <span className="text-[11px] text-red-600">(Opcional)</span>
           </div>
         )}
-
         <div className="overflow-x-auto">
           <table className="mb-8 w-full border border-black text-[13px]">
             <thead>
@@ -653,26 +489,20 @@ const WidgetRenderer: React.FC<Props> = ({
                 ))}
               </tr>
             </thead>
-
             <tbody>
               {filasParciales.length ? (
                 filasParciales.map((fila: any, rowIdx: number) => (
                   <tr key={rowIdx}>
                     {headers.map((h: any) => (
                       <td key={h.key} className={`border px-2 py-1 align-top ${highlight(`${widget.posicion}.campos.filas.${rowIdx}.${h.key}`)}`}>
-                        {fila[h.key] ?? ""}
+                        {toStr(fila[h.key])}
                       </td>
                     ))}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td
-                    colSpan={headers.length}
-                    className="border text-center py-2 text-gray-400"
-                  >
-                    N/A
-                  </td>
+                  <td colSpan={headers.length} className="border text-center py-2 text-gray-400">N/A</td>
                 </tr>
               )}
             </tbody>
@@ -693,63 +523,40 @@ const WidgetRenderer: React.FC<Props> = ({
 
     while (i < lines.length) {
       const line = lines[i];
-
       const numberedMatch = line.match(/^(\d+)\.\s+(.+)$/);
 
       if (numberedMatch) {
-        const numero = Number(numberedMatch[1]);
-        const item = numberedMatch[2];
-
         elements.push(
-          <ol
-            key={`ol-${i}`}
-            start={numero}
-            className="list-decimal ml-8 pl-3 mb-1 space-y-1"
-          >
-            <li className="pl-1">{item}</li>
+          <ol key={`ol-${i}`} start={Number(numberedMatch[1])} className="list-decimal ml-8 pl-3 mb-1 space-y-1">
+            <li className="pl-1">{numberedMatch[2]}</li>
           </ol>
         );
-
         i++;
         continue;
       }
 
       if (/^-\s+/.test(line)) {
         const items: string[] = [];
-
         while (i < lines.length && /^-\s+/.test(lines[i])) {
           items.push(lines[i].replace(/^-\s+/, ""));
           i++;
         }
-
         elements.push(
           <ul key={`ul-${i}`} className="list-disc pl-6 space-y-1">
-            {items.map((item, idx) => (
-              <li key={idx}>{item}</li>
-            ))}
+            {items.map((item, idx) => <li key={idx}>{item}</li>)}
           </ul>
         );
-
         continue;
       }
 
-      elements.push(
-        <p key={`p-${i}`} className="mb-1">
-          {line}
-        </p>
-      );
-
+      elements.push(<p key={`p-${i}`} className="mb-1">{line}</p>);
       i++;
     }
 
     return <>{elements}</>;
   };
 
-  const renderW006Partial = (
-    widget: Widget,
-    bloquesParciales: any[],
-    showTitle: boolean
-  ) => {
+  const renderW006Partial = (widget: Widget, bloquesParciales: any[], showTitle: boolean) => {
     const campos = widget.campos || {};
     const titulo = campos.titulo || widget.titulo || "Título de la sección";
 
@@ -762,21 +569,19 @@ const WidgetRenderer: React.FC<Props> = ({
               <div className="flex-1 min-w-0">
                 <span className="font-bold text-[18px]">{titulo}</span>
               </div>
-              <span className="text-[11px] shrink-0 ml-2 mt-1 text-red-600">
-                (Opcional)
-              </span>
+              <span className="text-[11px] shrink-0 ml-2 mt-1 text-red-600">(Opcional)</span>
             </div>
           </div>
         )}
-
         <div className="flex flex-col">
           {bloquesParciales.map((block: any, index: number) => (
             <div key={block.id || index} className="mb-2">
               <div
-                className={`${block.tipo === "subtitulo"
+                className={`${
+                  block.tipo === "subtitulo"
                     ? "font-bold text-[14px] text-black"
                     : "text-[13px] italic text-[#1d5da8] leading-snug"
-                  } ${highlight(`${widget.posicion}.campos.bloques`)}`}
+                } ${highlight(`${widget.posicion}.campos.bloques`)}`}
               >
                 {renderFormattedW006Text(block.texto)}
               </div>
@@ -800,49 +605,49 @@ const WidgetRenderer: React.FC<Props> = ({
           </div>
         )}
         <div className="border border-black text-[13px]">
-          {filas.map((fila: any, rowIdx: number) => (
-            <div
-              key={rowIdx}
-              className="flex w-full"
-              style={{
-                borderBottom:
-                  rowIdx < filas.length - 1 ? "1px solid black" : "none",
-              }}
-            >
-              {fila.celdas.map((cel: any, celIdx: number) => (
-                <div
-                  key={celIdx}
-                  className="px-2 py-1 break-words min-w-0"
-                  style={{
-                    flex: 1,
-                    borderRight: celIdx < fila.celdas.length - 1 ? "1px solid black" : "none",
-                  }}
-                >
-                  {cel.label && cel.label !== "" && (
-                    <div className={`text-[11px] text-gray-500 ${highlight(`${widget.posicion}.campos.filas.${rowIdx}.celdas.${celIdx}.label`)}`}>
-                      {cel.label}
+          {filas.map((fila: any, rowIdx: number) => {
+            const celdas = fila?.celdas ?? [];
+            return (
+              <div
+                key={rowIdx}
+                className="flex w-full"
+                style={{ borderBottom: rowIdx < filas.length - 1 ? "1px solid black" : "none" }}
+              >
+                {celdas.map((cel: any, celIdx: number) => {
+                  const labelTexto = toStr(cel.label);
+                  const valorTexto = toStr(cel.valor);
+                  return (
+                    <div
+                      key={celIdx}
+                      className="px-2 py-1 break-words min-w-0"
+                      style={{
+                        flex: cel.colspan ?? 1,
+                        borderRight: celIdx < celdas.length - 1 ? "1px solid black" : "none",
+                      }}
+                    >
+                      {labelTexto !== "" && (
+                        <div className={`text-[11px] text-gray-500 ${highlight(`${widget.posicion}.campos.filas.${rowIdx}.celdas.${celIdx}.label`)}`}>
+                          {labelTexto}
+                        </div>
+                      )}
+                      <div className={`${cel.bold ? "font-bold" : ""} ${highlight(`${widget.posicion}.campos.filas.${rowIdx}.celdas.${celIdx}.valor`)}`}>
+                        {valorTexto}
+                      </div>
                     </div>
-                  )}
-                  <div className={`${cel.bold ? "font-bold" : ""} ${highlight(`${widget.posicion}.campos.filas.${rowIdx}.celdas.${celIdx}.valor`)}`}>
-                    {cel.valor || ""}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
   };
 
-  // ── Fase 1: render invisible para medir alturas + spinner ──
-  // Los elementos se renderizan fuera de pantalla para que el navegador
-  // calcule sus alturas reales antes de paginar
+  // ── Fase 1: render invisible para medir alturas ──
   if (!measured) {
     return (
       <div className="w-full bg-[#ececec] py-8 px-4">
-
-        {/* Si es refresh silencioso, muestra páginas anteriores mientras remide */}
         {suppressSpinnerRef.current ? (
           <>
             {pages.map((pageBlocks, pageIndex) => (
@@ -864,11 +669,9 @@ const WidgetRenderer: React.FC<Props> = ({
                   )}
                   {pageBlocks.map((block) => {
                     if (block.id === "intro") return null;
-
                     if (block.chunkType) {
                       const widget = sortedWidgets.find(w => w.posicion === block.chunkWidgetPos);
                       if (!widget) return null;
-
                       if (block.chunkType === "w003") {
                         const filas = widget.campos?.filas ?? [];
                         const chunkFilas = block.chunkRowIndices!.map(idx => filas[idx]).filter(Boolean);
@@ -885,7 +688,6 @@ const WidgetRenderer: React.FC<Props> = ({
                         return <div key={block.id}>{renderW006Partial(widget, chunkLineas, block.chunkShowTitle!)}</div>;
                       }
                     }
-
                     const widget = sortedWidgets.find(w => `${w.id_widget}-${w.posicion}` === block.id);
                     return <div key={block.id}>{widget ? renderWidget(widget) : null}</div>;
                   })}
@@ -918,11 +720,14 @@ const WidgetRenderer: React.FC<Props> = ({
               {renderWidget(widget)}
             </div>
           ))}
+
           {/* Medición W003 */}
           {sortedWidgets.filter((w) => w.id_widget === "w_003").map((widget) => {
             const campos = widget.campos || {};
             const filas = campos.filas ?? [];
-            const defaultHeaders = campos.filas?.[0] ? Object.keys(campos.filas[0]).map((k: string) => ({ key: k, label: k })) : [{ key: "TIPO", label: "Riesgo" }, { key: "PROBABLE_PERDIDA", label: "Probable Pérdida" }, { key: "JUSTIFICACION", label: "Justificación" }];
+            const defaultHeaders = campos.filas?.[0]
+              ? Object.keys(campos.filas[0]).map((k: string) => ({ key: k, label: k }))
+              : [{ key: "TIPO", label: "Riesgo" }, { key: "PROBABLE_PERDIDA", label: "Probable Pérdida" }, { key: "JUSTIFICACION", label: "Justificación" }];
             const headers = campos.headers || defaultHeaders;
             if (!w003RowRefs.current[widget.posicion]) w003RowRefs.current[widget.posicion] = [];
             return (
@@ -930,29 +735,45 @@ const WidgetRenderer: React.FC<Props> = ({
                 <tbody>
                   {filas.map((fila: any, rowIdx: number) => (
                     <tr key={rowIdx} ref={(el) => { w003RowRefs.current[widget.posicion][rowIdx] = el; }}>
-                      {headers.map((h: any) => <td key={h.key} className="px-2 py-1 align-top">{fila[h.key] ?? ""}</td>)}
+                      {headers.map((h: any) => (
+                        <td key={h.key} className="px-2 py-1 align-top">{toStr(fila[h.key])}</td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
             );
           })}
-          {/* Medición W005 */}
+
+          {/* Medición W005 — usa toStr en label y valor */}
           {sortedWidgets.filter((w) => w.id_widget === "w_005").map((widget) => {
             const filas = widget.campos?.filas ?? [];
             if (!rowRefs.current[widget.posicion]) rowRefs.current[widget.posicion] = [];
             return (
               <div key={`rows-${widget.posicion}`}>
-                {filas.map((fila: any, rowIdx: number) => (
-                  <div key={rowIdx} ref={(el) => { rowRefs.current[widget.posicion][rowIdx] = el; }} className="flex w-full border-b border-black text-[13px]">
-                    {fila.celdas.map((cel: any, celIdx: number) => (
-                      <div key={celIdx} className="px-2 py-1" style={{ flex: 1 }}>
-                        {cel.label && <div className="text-[11px] text-gray-500">{cel.label}</div>}
-                        <div className={cel.bold ? "font-bold" : ""}>{cel.valor}</div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                {filas.map((fila: any, rowIdx: number) => {
+                  const celdas = fila?.celdas ?? [];
+                  return (
+                    <div
+                      key={rowIdx}
+                      ref={(el) => { rowRefs.current[widget.posicion][rowIdx] = el; }}
+                      className="flex w-full border-b border-black text-[13px]"
+                    >
+                      {celdas.map((cel: any, celIdx: number) => {
+                        const labelTexto = toStr(cel.label);
+                        const valorTexto = toStr(cel.valor);
+                        return (
+                          <div key={celIdx} className="px-2 py-1" style={{ flex: cel.colspan ?? 1 }}>
+                            {labelTexto !== "" && (
+                              <div className="text-[11px] text-gray-500">{labelTexto}</div>
+                            )}
+                            <div className={cel.bold ? "font-bold" : ""}>{valorTexto}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -960,10 +781,10 @@ const WidgetRenderer: React.FC<Props> = ({
       </div>
     );
   }
+
   // ── Fase 2: render paginado final ──
   return (
     <div className="w-full bg-[#ececec] py-8 px-4">
-      {/* Botón guardar */}
       <div className="flex justify-end mb-4 w-[816px] mx-auto print:hidden">
         <button
           onClick={handleSave}
@@ -986,15 +807,9 @@ const WidgetRenderer: React.FC<Props> = ({
             <div className="flex items-center justify-between px-12 py-7">
               <div className="text-[22px] font-semibold leading-none text-[#7c7c7c]">
                 <span>Formato Estándar | </span>
-                <span className="font-normal">
-                  {nombrePlantilla}
-                </span>
+                <span className="font-normal">{nombrePlantilla}</span>
               </div>
-              <img
-                src="/images/rayaNegra.png"
-                alt="Encabezado"
-                className="h-[45px] object-cover"
-              />
+              <img src="/images/rayaNegra.png" alt="Encabezado" className="h-[45px] object-cover" />
             </div>
           </div>
 
@@ -1011,7 +826,6 @@ const WidgetRenderer: React.FC<Props> = ({
               boxSizing: "border-box",
             }}
           >
-            {/* Párrafo introductorio solo en página 1 */}
             {pageIndex === 0 && (
               <p className="mb-8 text-[13px] leading-[1.2]">
                 Este cuestionario tiene como propósito conocer cuáles son los
@@ -1055,11 +869,7 @@ const WidgetRenderer: React.FC<Props> = ({
 
           {/* Footer */}
           <div className="flex h-[90px] items-center px-6">
-            <img
-              src="/images/banortegf.png"
-              alt="Footer Banorte"
-              className="h-[65px] object-contain"
-            />
+            <img src="/images/banortegf.png" alt="Footer Banorte" className="h-[65px] object-contain" />
           </div>
         </div>
       ))}
@@ -1068,39 +878,18 @@ const WidgetRenderer: React.FC<Props> = ({
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
           <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-[520px] p-10 flex flex-col items-center text-center">
-            <button
-              onClick={() => setShowSuccess(false)}
-              className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg"
-            >
-              ✕
-            </button>
+            <button onClick={() => setShowSuccess(false)} className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg">✕</button>
             <div className="mb-5">
-              <img
-                src="/images/OpExitosa.png"
-                alt="Operación exitosa"
-                className="w-20 h-20 object-contain"
-              />
+              <img src="/images/OpExitosa.png" alt="Operación exitosa" className="w-20 h-20 object-contain" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
-              Cambios guardados
-            </h2>
-            <p className="text-gray-500 text-sm mb-2">
-              Tu documento ha sido guardado exitosamente el día:
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Cambios guardados</h2>
+            <p className="text-gray-500 text-sm mb-2">Tu documento ha sido guardado exitosamente el día:</p>
             <p className="text-gray-800 font-bold text-base mb-8">
               {new Date()
-                .toLocaleDateString("es-MX", {
-                  weekday: "long",
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                })
+                .toLocaleDateString("es-MX", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })
                 .replace(/^\w/, (c) => c.toUpperCase())}
             </p>
-            <button
-              onClick={() => setShowSuccess(false)}
-              className="bg-[#EB0029] text-white px-16 py-3 rounded-xl font-semibold text-base hover:opacity-90 transition"
-            >
+            <button onClick={() => setShowSuccess(false)} className="bg-[#EB0029] text-white px-16 py-3 rounded-xl font-semibold text-base hover:opacity-90 transition">
               Confirmar
             </button>
           </div>
@@ -1111,29 +900,13 @@ const WidgetRenderer: React.FC<Props> = ({
       {showError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
           <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-[520px] p-10 flex flex-col items-center text-center">
-            <button
-              onClick={() => setShowError(false)}
-              className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg"
-            >
-              ✕
-            </button>
+            <button onClick={() => setShowError(false)} className="absolute top-4 right-5 text-gray-400 hover:text-black text-lg">✕</button>
             <div className="mb-5">
-              <img
-                src="/images/Error.png"
-                alt="Error"
-                className="w-20 h-20 object-contain"
-              />
+              <img src="/images/Error.png" alt="Error" className="w-20 h-20 object-contain" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
-              Error al guardar
-            </h2>
-            <p className="text-gray-500 text-sm mb-8">
-              No se pudo guardar. Por favor intenta de nuevo.
-            </p>
-            <button
-              onClick={() => setShowError(false)}
-              className="bg-[#EB0029] text-white px-16 py-3 rounded-xl font-semibold text-base hover:opacity-90 transition"
-            >
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Error al guardar</h2>
+            <p className="text-gray-500 text-sm mb-8">No se pudo guardar. Por favor intenta de nuevo.</p>
+            <button onClick={() => setShowError(false)} className="bg-[#EB0029] text-white px-16 py-3 rounded-xl font-semibold text-base hover:opacity-90 transition">
               Aceptar
             </button>
           </div>

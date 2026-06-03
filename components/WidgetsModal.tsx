@@ -179,7 +179,7 @@ export default function WidgetsModal({ isOpen, onClose, widgets, onWidgetsChange
           body: JSON.stringify({
             user_id: userId,
             session_id: sessionId,
-            message: "Lee la plantilla actualizada y responde únicamente con: OK",
+            message: "Modifiqué la plantilla, lee la plantilla de nuevo",
           }),
         }).catch((e) => console.error("No se pudo notificar al agente:", e));
       }

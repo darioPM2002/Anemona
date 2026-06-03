@@ -367,21 +367,35 @@ const WidgetRenderer: React.FC<Props> = ({
             };
 
             filas.forEach((_, rowIdx) => {
-              const rh = rowHeights[rowIdx] ?? 34;
+  const rh = rowHeights[rowIdx] ?? 34;
 
-              if (
-                !fitsInCurrentPage(currentHeight, chunkHeight + rh) &&
-                currentChunk.length > 0
-              ) {
-                flushChunk();
-                result.push(currentPage);
-                currentPage = [];
-                currentHeight = 0;
-              }
+  // Si todavía no hay filas en este pedazo y ni el título + header + primera fila caben,
+  // manda TODO el widget a la siguiente página antes de agregar la fila.
+  if (
+    currentChunk.length === 0 &&
+    !fitsInCurrentPage(currentHeight, chunkHeight + rh) &&
+    currentPage.length > 0
+  ) {
+    result.push(currentPage);
+    currentPage = [];
+    currentHeight = 0;
+  }
 
-              currentChunk.push(rowIdx);
-              chunkHeight += rh;
-            });
+  // Si ya hay filas y la siguiente ya no cabe,
+  // corta aquí y continúa en la siguiente página.
+  if (
+    currentChunk.length > 0 &&
+    !fitsInCurrentPage(currentHeight, chunkHeight + rh)
+  ) {
+    flushChunk();
+    result.push(currentPage);
+    currentPage = [];
+    currentHeight = 0;
+  }
+
+  currentChunk.push(rowIdx);
+  chunkHeight += rh;
+});
 
             flushChunk();
             return;

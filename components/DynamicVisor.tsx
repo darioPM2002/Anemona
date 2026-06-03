@@ -617,9 +617,9 @@ const WidgetRenderer: React.FC<Props> = ({
         {showTitle && (
           <div className="mb-4 mt-5 flex items-center gap-2">
             <span className="flex items-center gap-1 text-[18px]">
-              {widget.posicion}
-              <span className="font-semibold">{titulo}</span>.
-            </span>
+  <span>{widget.posicion}.</span>
+  <span className="font-semibold">{titulo}</span>
+</span>
             <span className="text-[11px] text-red-600">(Opcional)</span>
           </div>
         )}
@@ -777,9 +777,9 @@ if (numberedMatch) {
         {showTitle && (
           <div className="mb-4 mt-5 flex items-center gap-2">
             <span className="flex items-center gap-1 text-[18px]">
-              {widget.posicion}
-              <span className="font-semibold">{titulo}</span>.
-            </span>
+  <span>{widget.posicion}.</span>
+  <span className="font-semibold">{titulo}</span>
+</span>
           </div>
         )}
         <div className="border border-black text-[13px]">

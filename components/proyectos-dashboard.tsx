@@ -351,6 +351,15 @@ setTotalProyectos(data.total ?? proyectosConPermiso.length);
         <button onClick={limpiarFiltros} className="mt-10 rounded-sm bg-[#EB0029] px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700">
           Limpiar
         </button>
+
+        <div className="mt-auto pt-1 left-0 w-full flex justify-center">
+        <img
+          src="/images/banortelogo.png"
+          alt="Logo"
+          className="h-15"
+        />
+      </div>
+      
       </aside>
 
       {/* ── MAIN ── */}

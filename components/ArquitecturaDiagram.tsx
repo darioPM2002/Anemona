@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
-import { RefreshCw, Loader2, ZoomIn, ZoomOut, Maximize2, Minimize2 } from "lucide-react";
+import { RefreshCw, Loader2, ZoomIn, ZoomOut, Maximize2, Minimize2 , Info} from "lucide-react";
 import { API_URL } from "@/services/api";
 
 interface Nodo { id: string; label: string; tipo?: string; x?: number; y?: number; }
@@ -552,17 +552,25 @@ export default function ArquitecturaDiagram({
     <div className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Diagrama de arquitectura</span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleGenerar}
-            disabled={generating}
-            className="flex items-center gap-1.5 bg-[#EB0029] text-white font-semibold text-sm px-8 py-3 rounded-lg hover:bg-red-700 transition disabled:opacity-60"
-          >
-            {generating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            {generating ? "Generando…" : "Generar arquitectura"}
-          </button>
-        </div>
+        <div className="flex flex-col items-end gap-1.5">     
+  <button
+    onClick={handleGenerar}
+    disabled={generating}
+    className="flex items-center gap-1.5 bg-[#EB0029] text-white font-semibold text-sm px-8 py-3 rounded-lg hover:bg-red-700 transition disabled:opacity-60"
+  >
+    {generating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+    {generating ? "Generando…" : "Generar arquitectura"}
+  </button>
+  <div className="flex items-start gap-1.5 pt-3">
+    <Info size={12} className="text-gray-300 mt-0.5 shrink-0" />
+    <p className="text-xs text-gray-400 leading-relaxed text-right">
+      Si realizas cambios en el ERS, vuelve a generar la arquitectura.
+    </p>
+  </div>
+</div>
       </div>
+
+      
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100">
         {loading && <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-gray-400"><Loader2 size={20} className="animate-spin" />Cargando diagrama…</div>}

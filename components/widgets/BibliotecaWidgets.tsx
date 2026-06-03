@@ -375,7 +375,7 @@ export const renderW003 = (
               value={titulo}
               onChange={handleTituloChange}
               className={`font-semibold min-w-0
-          ${showControls ? "border-b border-dashed border-gray-400 focus:border-blue-500" : ""}
+          ${showControls ? "focus:border-blue-500" : ""}
           ${highlight(`${widget.posicion}.campos.titulo`)}
         `}
             />
@@ -395,7 +395,7 @@ export const renderW003 = (
                     value={h.label}
                     onChange={(e) => handleHeaderLabelChange(i, e.target.value)}
                     className={`bg-transparent text-white text-center outline-none w-full font-semibold
-    ${showControls ? "border-b border-dashed border-white/40 focus:border-white" : ""}
+    ${showControls ? " focus:border-white" : ""}
     ${highlight(`${widget.posicion}.campos.headers`)}
   `}
                   />
@@ -540,7 +540,7 @@ export const renderW005 = (
             <EditableTitle
               value={titulo}
               onChange={handleTituloChange}
-              className={`font-semibold min-w-0 border-b border-dashed border-gray-400 focus:border-blue-500
+              className={`font-semibold min-w-0 focus:border-blue-500
           ${highlight(`${widget.posicion}.campos.titulo`)}
         `}
             />

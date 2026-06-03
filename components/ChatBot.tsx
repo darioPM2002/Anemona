@@ -395,6 +395,41 @@ export default function ChatBot() {
     return () => window.removeEventListener("chat-session-changed", handleSessionChanged);
   }, []);
 
+  // En ChatBot.tsx, reemplaza el useEffect del intervalo:
+
+const lastWidgetsHashRef = useRef<string>("");
+
+useEffect(() => {
+  const checkForChanges = async () => {
+    try {
+      const docId = sessionStorage.getItem("project_id");
+      if (!docId) return;
+
+      const res = await fetch(
+        `${API_URL}/firestore/bajar?doc_id=${encodeURIComponent(docId)}`,
+        { method: "GET", headers: { accept: "application/json" }, cache: "no-store" }
+      );
+      if (!res.ok) return;
+
+      const json = await res.json();
+      if (!json.ok || !json.data) return;
+
+      const hash = JSON.stringify(json.data);
+      if (hash !== lastWidgetsHashRef.current) {
+        lastWidgetsHashRef.current = hash;
+        window.dispatchEvent(new CustomEvent("ers-refresh"));
+      }
+    } catch {}
+  };
+
+  const refreshInterval = setInterval(checkForChanges, 5000);
+
+  return () => {
+    clearInterval(refreshInterval);
+    stopHeartbeat();
+  };
+}, []);
+
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isThinking]);
 
   useEffect(() => {

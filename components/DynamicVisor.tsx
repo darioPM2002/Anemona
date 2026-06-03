@@ -16,6 +16,7 @@ type Props = {
   widgets: Widget[];
   changedFields?: Set<string>;
   nombrePlantilla?: string;
+  onPaginationDone?: () => void;
 };
 
 // Constantes de layout
@@ -41,12 +42,17 @@ export const USABLE_HEIGHT =
 export type BlockDef = {
   id: string;
   node?: React.ReactNode;
+  chunkType?: "w003" | "w005" | "w006";
+  chunkRowIndices?: number[];    // índices, no datos
+  chunkShowTitle?: boolean;
+  chunkWidgetPos?: number;
 };
 
 const WidgetRenderer: React.FC<Props> = ({
   widgets: initialWidgets,
   changedFields,
   nombrePlantilla = "Levantamiento de Requerimiento",
+  onPaginationDone,
 }) => {
   const [widgets, setWidgets] = useState<Widget[]>(
     Array.isArray(initialWidgets) ? initialWidgets : []
@@ -58,6 +64,8 @@ const WidgetRenderer: React.FC<Props> = ({
   const rowRefs = useRef<{ [widgetPos: number]: (HTMLDivElement | null)[] }>({}); // ayuda al algoritmo greedy a separar por linean no widgets del widget 005
   const w003RowRefs = useRef<{ [widgetPos: number]: (HTMLTableRowElement | null)[] }>({});
   const w006BlockRefs = useRef<{ [widgetPos: number]: (HTMLDivElement | null)[] }>({});
+  const suppressSpinnerRef = useRef(false);
+
   const [showError, setShowError] = useState(false); // Pop up error al guardar plantilla
   const [showSuccess, setShowSuccess] = useState(false); // Pop up exito al guardar plantilla
   const [localChangedFields, setLocalChangedFields] = useState<Set<string>>(new Set()); // highlight 
@@ -284,10 +292,11 @@ const WidgetRenderer: React.FC<Props> = ({
 
   // Sincroniza widgets internos cuando Documentacion pasa nuevos props
   // (ej: al cambiar de proyecto o recibir respuesta del chat)
-  useEffect(() => {
-    setWidgets(Array.isArray(initialWidgets) ? initialWidgets : []);
-    setLocalChangedFields(new Set());
-  }, [initialWidgets]);
+useEffect(() => {
+  const newWidgets = Array.isArray(initialWidgets) ? initialWidgets : [];
+  setWidgets(newWidgets);
+  setLocalChangedFields(new Set());
+}, [initialWidgets]);
 
   // Algoritmo de paginación greedy:
   // - measureRefs[0] = párrafo introductorio
@@ -299,6 +308,7 @@ const WidgetRenderer: React.FC<Props> = ({
     if (sortedWidgets.length === 0) {
       setPages([[{ id: "intro", node: null }]]);
       setMeasured(true);
+      onPaginationDone?.();
       return;
     }
 
@@ -355,9 +365,12 @@ const WidgetRenderer: React.FC<Props> = ({
               const chunkFilas = currentChunk.map((idx) => filas[idx]);
 
               currentPage.push({
-                id: `${widget.id_widget}-${widget.posicion}-chunk-${currentChunk[0]}`,
-                node: renderW003Partial(widget, chunkFilas, isFirst),
-              });
+  id: `${widget.id_widget}-${widget.posicion}-chunk-${currentChunk[0]}`,
+  chunkType: "w003",
+  chunkRowIndices: [...currentChunk],
+  chunkShowTitle: isFirst,
+  chunkWidgetPos: widget.posicion,
+});
 
               currentHeight += chunkHeight;
               currentChunk = [];
@@ -400,8 +413,7 @@ const WidgetRenderer: React.FC<Props> = ({
             return;
           }
 
-          // W006 — partir por bloques internos: subtítulos y párrafos
-          // W006 — partir por líneas internas
+          // W006 — partir por bloques internos: subtítulos, párrafos y por líneas internas
           if (widget.id_widget === "w_006") {
             const lineas = getW006LineItems(widget);
 
@@ -439,9 +451,12 @@ const WidgetRenderer: React.FC<Props> = ({
               const chunkLineas = currentChunk.map((idx) => lineas[idx]);
 
               currentPage.push({
-                id: `${widget.id_widget}-${widget.posicion}-linechunk-${currentChunk[0]}`,
-                node: renderW006Partial(widget, chunkLineas, isFirst),
-              });
+  id: `${widget.id_widget}-${widget.posicion}-chunk-${currentChunk[0]}`,
+  chunkType: "w006",
+  chunkRowIndices: [...currentChunk],
+  chunkShowTitle: isFirst,
+  chunkWidgetPos: widget.posicion,
+});
 
               currentHeight += chunkHeight;
               currentChunk = [];
@@ -522,10 +537,12 @@ const WidgetRenderer: React.FC<Props> = ({
               const chunkFilas = currentChunk.map((idx) => filas[idx]);
 
               currentPage.push({
-                id: `${widget.id_widget}-${widget.posicion}-chunk-${currentChunk[0]}`,
-                node: renderW005Partial(widget, chunkFilas, isFirst),
-              });
-
+  id: `${widget.id_widget}-${widget.posicion}-linechunk-${currentChunk[0]}`,
+  chunkType: "w005",
+  chunkRowIndices: [...currentChunk],
+  chunkShowTitle: isFirst,
+  chunkWidgetPos: widget.posicion,
+});
               currentHeight += chunkHeight;
               currentChunk = [];
               chunkHeight = 0;
@@ -585,8 +602,10 @@ const WidgetRenderer: React.FC<Props> = ({
         });
 
         if (currentPage.length > 0) result.push(currentPage);
-        setPages(result);
-        setMeasured(true);
+setPages(result);
+setMeasured(true);
+suppressSpinnerRef.current = false;  // ← agregar aquí
+onPaginationDone?.();
       });
     });
 
@@ -819,149 +838,127 @@ if (numberedMatch) {
   // Los elementos se renderizan fuera de pantalla para que el navegador
   // calcule sus alturas reales antes de paginar
   if (!measured) {
-    return (
-      <div className="w-full bg-[#ececec] py-8 px-4">
+  return (
+    <div className="w-full bg-[#ececec] py-8 px-4">
+
+      {/* Si es refresh silencioso, muestra páginas anteriores mientras remide */}
+      {suppressSpinnerRef.current ? (
+        <>
+          {pages.map((pageBlocks, pageIndex) => (
+            <div key={pageIndex} data-pdf-page className="mx-auto mb-8 w-[816px] border border-gray-300 bg-white shadow-md" style={{ height: "1056px", overflow: "hidden" }}>
+              <div className="h-[110px] border-b border-[#b9a89f]">
+                <div className="flex items-center justify-between px-12 py-7">
+                  <div className="text-[22px] font-semibold leading-none text-[#7c7c7c]">
+                    <span>Formato Estándar | </span>
+                    <span className="font-normal">{nombrePlantilla}</span>
+                  </div>
+                  <img src="/images/rayaNegra.png" alt="Encabezado" className="h-[45px] object-cover" />
+                </div>
+              </div>
+              <div className="text-black text-[13px] leading-[1.28]" style={{ height: "856px", overflow: "hidden", paddingTop: `${CONTENT_PADDING_TOP}px`, paddingBottom: `${CONTENT_PADDING_BOTTOM}px`, paddingLeft: "47px", paddingRight: "51px", boxSizing: "border-box" }}>
+                {pageIndex === 0 && (
+                  <p className="mb-8 text-[13px] leading-[1.2]">
+                    Este cuestionario tiene como propósito conocer cuáles son los beneficios, costos y riesgos relacionados con cada iniciativa que ingresa al portafolio de proyectos y mantenimientos tecnológicos de Áreas de Soporte. Esta información será de utilidad para ponderar el portafolio en su conjunto y priorizar la atención de los requerimientos de acuerdo a su beneficio económico, alineación estratégica y conveniencia de su realización.
+                  </p>
+                )}
+                {pageBlocks.map((block) => {
+  if (block.id === "intro") return null;
+
+  if (block.chunkType) {
+    const widget = sortedWidgets.find(w => w.posicion === block.chunkWidgetPos);
+    if (!widget) return null;
+
+    if (block.chunkType === "w003") {
+      const filas = widget.campos?.filas ?? [];
+      const chunkFilas = block.chunkRowIndices!.map(idx => filas[idx]).filter(Boolean);
+      return <div key={block.id}>{renderW003Partial(widget, chunkFilas, block.chunkShowTitle!)}</div>;
+    }
+    if (block.chunkType === "w005") {
+      const filas = widget.campos?.filas ?? [];
+      const chunkFilas = block.chunkRowIndices!.map(idx => filas[idx]).filter(Boolean);
+      return <div key={block.id}>{renderW005Partial(widget, chunkFilas, block.chunkShowTitle!)}</div>;
+    }
+    if (block.chunkType === "w006") {
+      const lineas = getW006LineItems(widget);
+      const chunkLineas = block.chunkRowIndices!.map(idx => lineas[idx]).filter(Boolean);
+      return <div key={block.id}>{renderW006Partial(widget, chunkLineas, block.chunkShowTitle!)}</div>;
+    }
+  }
+
+  const widget = sortedWidgets.find(w => `${w.id_widget}-${w.posicion}` === block.id);
+  return <div key={block.id}>{widget ? renderWidget(widget) : null}</div>;
+})}
+              </div>
+              <div className="flex h-[90px] items-center px-6">
+                <img src="/images/banortegf.png" alt="Footer Banorte" className="h-[65px] object-contain" />
+              </div>
+            </div>
+          ))}
+        </>
+      ) : (
         <div className="flex items-center justify-center py-16 text-sm text-gray-400">
-          <svg
-            className="mr-2 h-5 w-5 animate-spin text-[#EB0029]"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8v8z"
-            />
+          <svg className="mr-2 h-5 w-5 animate-spin text-[#EB0029]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
           </svg>
           Calculando paginación...
         </div>
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: "-9999px",
-            visibility: "hidden",
-            pointerEvents: "none",
-            width: "716px",
-            zIndex: -1,
-          }}
-        >
-          {/* índice 0: párrafo introductorio */}
-          <div
-            ref={(el) => {
-              measureRefs.current[0] = el;
-            }}
-          >
-            <p className="mb-8 text-[13px] leading-[1.2]">
-              Este cuestionario tiene como propósito conocer cuáles son los
-              beneficios, costos y riesgos relacionados con cada iniciativa que
-              ingresa al portafolio de proyectos y mantenimientos tecnológicos
-              de Áreas de Soporte. Esta información será de utilidad para
-              ponderar el portafolio en su conjunto y priorizar la atención de
-              los requerimientos de acuerdo a su beneficio económico, alineación
-              estratégica y conveniencia de su realización.
-            </p>
+      )}
+
+      {/* Medición invisible — siempre presente */}
+      <div aria-hidden="true" style={{ position: "absolute", top: 0, left: "-9999px", visibility: "hidden", pointerEvents: "none", width: "716px", zIndex: -1 }}>
+        <div ref={(el) => { measureRefs.current[0] = el; }}>
+          <p className="mb-8 text-[13px] leading-[1.2]">
+            Este cuestionario tiene como propósito conocer cuáles son los beneficios, costos y riesgos relacionados con cada iniciativa que ingresa al portafolio de proyectos y mantenimientos tecnológicos de Áreas de Soporte. Esta información será de utilidad para ponderar el portafolio en su conjunto y priorizar la atención de los requerimientos de acuerdo a su beneficio económico, alineación estratégica y conveniencia de su realización.
+          </p>
+        </div>
+        {sortedWidgets.map((widget, i) => (
+          <div key={`${widget.id_widget}-${widget.posicion}`} ref={(el) => { measureRefs.current[i + 1] = el; }}>
+            {renderWidget(widget)}
           </div>
-          {/* índices 1..n: widgets */}
-          {sortedWidgets.map((widget, i) => (
-            <div
-              key={`${widget.id_widget}-${widget.posicion}`}
-              ref={(el) => { measureRefs.current[i + 1] = el; }}
-            >
-              {renderWidget(widget)}
-            </div>
-          ))}
-
-          {/* Medición de filas individuales de W003 */}
-          {sortedWidgets
-            .filter((w) => w.id_widget === "w_003")
-            .map((widget) => {
-              const campos = widget.campos || {};
-              const filas = campos.filas ?? [];
-
-              const defaultHeaders = campos.filas?.[0]
-                ? Object.keys(campos.filas[0]).map((k: string) => ({ key: k, label: k }))
-                : [
-                  { key: "TIPO", label: "Riesgo" },
-                  { key: "PROBABLE_PERDIDA", label: "Probable Pérdida" },
-                  { key: "JUSTIFICACION", label: "Justificación" },
-                ];
-
-              const headers = campos.headers || defaultHeaders;
-
-              if (!w003RowRefs.current[widget.posicion]) {
-                w003RowRefs.current[widget.posicion] = [];
-              }
-
-              return (
-                <table key={`w003-rows-${widget.posicion}`} className="w-full text-[13px]">
-                  <tbody>
-                    {filas.map((fila: any, rowIdx: number) => (
-                      <tr
-                        key={rowIdx}
-                        ref={(el) => {
-                          w003RowRefs.current[widget.posicion][rowIdx] = el;
-                        }}
-                      >
-                        {headers.map((h: any) => (
-                          <td key={h.key} className="px-2 py-1 align-top">
-                            {fila[h.key] ?? ""}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              );
-            })}
-
-
-          {/* Medición de filas individuales de W005 */}
-          {sortedWidgets
-            .filter((w) => w.id_widget === "w_005")
-            .map((widget) => {
-              const filas = widget.campos?.filas ?? [];
-              if (!rowRefs.current[widget.posicion]) {
-                rowRefs.current[widget.posicion] = [];
-              }
-              return (
-                <div key={`rows-${widget.posicion}`}>
-                  {filas.map((fila: any, rowIdx: number) => (
-                    <div
-                      key={rowIdx}
-                      ref={(el) => { rowRefs.current[widget.posicion][rowIdx] = el; }}
-                      className="flex w-full border-b border-black text-[13px]"
-                    >
-                      {fila.celdas.map((cel: any, celIdx: number) => (
-                        <div
-                          key={celIdx}
-                          className="px-2 py-1"
-                          style={{ flex: 1 }}
-                        >
-                          {cel.label && <div className="text-[11px] text-gray-500">{cel.label}</div>}
-                          <div className={cel.bold ? "font-bold" : ""}>{cel.valor}</div>
-                        </div>
-                      ))}
+        ))}
+        {/* Medición W003 */}
+        {sortedWidgets.filter((w) => w.id_widget === "w_003").map((widget) => {
+          const campos = widget.campos || {};
+          const filas = campos.filas ?? [];
+          const defaultHeaders = campos.filas?.[0] ? Object.keys(campos.filas[0]).map((k: string) => ({ key: k, label: k })) : [{ key: "TIPO", label: "Riesgo" }, { key: "PROBABLE_PERDIDA", label: "Probable Pérdida" }, { key: "JUSTIFICACION", label: "Justificación" }];
+          const headers = campos.headers || defaultHeaders;
+          if (!w003RowRefs.current[widget.posicion]) w003RowRefs.current[widget.posicion] = [];
+          return (
+            <table key={`w003-rows-${widget.posicion}`} className="w-full text-[13px]">
+              <tbody>
+                {filas.map((fila: any, rowIdx: number) => (
+                  <tr key={rowIdx} ref={(el) => { w003RowRefs.current[widget.posicion][rowIdx] = el; }}>
+                    {headers.map((h: any) => <td key={h.key} className="px-2 py-1 align-top">{fila[h.key] ?? ""}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        })}
+        {/* Medición W005 */}
+        {sortedWidgets.filter((w) => w.id_widget === "w_005").map((widget) => {
+          const filas = widget.campos?.filas ?? [];
+          if (!rowRefs.current[widget.posicion]) rowRefs.current[widget.posicion] = [];
+          return (
+            <div key={`rows-${widget.posicion}`}>
+              {filas.map((fila: any, rowIdx: number) => (
+                <div key={rowIdx} ref={(el) => { rowRefs.current[widget.posicion][rowIdx] = el; }} className="flex w-full border-b border-black text-[13px]">
+                  {fila.celdas.map((cel: any, celIdx: number) => (
+                    <div key={celIdx} className="px-2 py-1" style={{ flex: 1 }}>
+                      {cel.label && <div className="text-[11px] text-gray-500">{cel.label}</div>}
+                      <div className={cel.bold ? "font-bold" : ""}>{cel.valor}</div>
                     </div>
                   ))}
                 </div>
-              );
-            })}
-        </div>
+              ))}
+            </div>
+          );
+        })}
       </div>
-    );
-  }
-
+    </div>
+  );
+}
   // ── Fase 2: render paginado final ──
   return (
     <div className="w-full bg-[#ececec] py-8 px-4">
@@ -1027,22 +1024,32 @@ if (numberedMatch) {
               </p>
             )}
             {pageBlocks.map((block) => {
-              if (block.id === "intro") return null;
+  if (block.id === "intro") return null;
 
-              // Si el bloque ya tiene node precalculado (chunks de W005), úsalo directo
-              if (block.node) {
-                return <div key={block.id}>{block.node}</div>;
-              }
+  if (block.chunkType) {
+    const widget = sortedWidgets.find(w => w.posicion === block.chunkWidgetPos);
+    if (!widget) return null;
 
-              // Para el resto de widgets, busca y renderiza normal
-              const widget = sortedWidgets.find(
-                (w) => `${w.id_widget}-${w.posicion}` === block.id,
-              );
+    if (block.chunkType === "w003") {
+      const filas = widget.campos?.filas ?? [];
+      const chunkFilas = block.chunkRowIndices!.map(idx => filas[idx]).filter(Boolean);
+      return <div key={block.id}>{renderW003Partial(widget, chunkFilas, block.chunkShowTitle!)}</div>;
+    }
+    if (block.chunkType === "w005") {
+      const filas = widget.campos?.filas ?? [];
+      const chunkFilas = block.chunkRowIndices!.map(idx => filas[idx]).filter(Boolean);
+      return <div key={block.id}>{renderW005Partial(widget, chunkFilas, block.chunkShowTitle!)}</div>;
+    }
+    if (block.chunkType === "w006") {
+      const lineas = getW006LineItems(widget);
+      const chunkLineas = block.chunkRowIndices!.map(idx => lineas[idx]).filter(Boolean);
+      return <div key={block.id}>{renderW006Partial(widget, chunkLineas, block.chunkShowTitle!)}</div>;
+    }
+  }
 
-              return (
-                <div key={block.id}>{widget ? renderWidget(widget) : null}</div>
-              );
-            })}
+  const widget = sortedWidgets.find(w => `${w.id_widget}-${w.posicion}` === block.id);
+  return <div key={block.id}>{widget ? renderWidget(widget) : null}</div>;
+})}
           </div>
 
           {/* Footer */}

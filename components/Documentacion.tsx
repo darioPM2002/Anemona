@@ -77,6 +77,14 @@ function EmailPopup({ success, message, onClose }: { success: boolean; message: 
     </div>
   );
 }
+const stableHash = (obj: any): string => {
+  if (Array.isArray(obj)) return "[" + obj.map(stableHash).join(",") + "]";
+  if (obj !== null && typeof obj === "object") {
+    const sortedKeys = Object.keys(obj).sort();
+    return "{" + sortedKeys.map(k => `"${k}":${stableHash(obj[k])}`).join(",") + "}";
+  }
+  return JSON.stringify(obj);
+};
 
 export default function Documentacion({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
   const [tab, setTab] = useState<"ERS" | "Análisis" | "Arquitectura">("ERS");
@@ -103,6 +111,9 @@ const DOC_NAMES: Record<"ERS" | "Análisis" | "Arquitectura", string> = {
   const prevRawDataRef = useRef<any>(null);
   const prevDocIdRef = useRef<string>(""); 
   const widgetsHashRef = useRef<string>("");
+  // guarda la posición antes de actualizar en el contenedor screolleable
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+const scrollPositionRef = useRef<number>(0);
 
   const getActiveProjectId = () => {
     if (typeof window === "undefined") return "";
@@ -194,8 +205,10 @@ if (suppressHighlight) {
   prevDocIdRef.current = docId;
   prevRawDataRef.current = json.data;
   const newWidgets = mapDataToWidgets(json.data);
-  const newHash = JSON.stringify(newWidgets);
+  const newHash = stableHash(newWidgets);
   if (newHash !== widgetsHashRef.current) {
+    const currentScroll = scrollContainerRef.current?.scrollTop ?? 0;
+scrollPositionRef.current = currentScroll;
     widgetsHashRef.current = newHash;
     setWidgets(newWidgets);
   }
@@ -224,8 +237,10 @@ if (suppressHighlight) {
 
   prevRawDataRef.current = json.data;
 const newWidgets = mapDataToWidgets(json.data);
-const newHash = JSON.stringify(newWidgets);
+const newHash = stableHash(newWidgets);
 if (newHash !== widgetsHashRef.current) {
+  const currentScroll = scrollContainerRef.current?.scrollTop ?? 0;
+scrollPositionRef.current = currentScroll;
   widgetsHashRef.current = newHash;
   setWidgets(newWidgets);
 }
@@ -556,17 +571,27 @@ window.removeEventListener("document-project-change", handleProjectChange);
 
               <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-white shadow">
                 {tab === "ERS" || tab === "Análisis" ? (
-                  <div className="h-full w-full overflow-y-auto overscroll-contain bg-[#e9e9e9]">
+                  <div
+  ref={scrollContainerRef}
+  onScroll={(e) => { scrollPositionRef.current = (e.target as HTMLDivElement).scrollTop; }}
+  className="h-full w-full overflow-y-auto overscroll-contain bg-[#e9e9e9]"
+>
                     {loadingERS ? (
                       <div className="flex h-full items-center justify-center text-sm text-gray-500">
                         Cargando documento...
                       </div>
                     ) : (
                       <WidgetRenderer
-                        widgets={widgets}
-                        changedFields={changedFields}
-                        nombrePlantilla={nombrePlantilla}
-                      />
+  key={activeDocId}
+  widgets={widgets}
+  changedFields={changedFields}
+  nombrePlantilla={nombrePlantilla}
+  onPaginationDone={() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollPositionRef.current;
+    }
+  }}
+/>
                     )}
                   </div>
                 ) : (

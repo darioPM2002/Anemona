@@ -43,12 +43,7 @@ export const EditableTitle = ({
   value={value}
   onChange={(e) => onChange(e.target.value)}
   rows={1}
-  style={{
-    width: className.includes("border-dashed")
-      ? `${Math.max(value.length + 1, 4)}ch`
-      : undefined,
-  }}
-  className={`bg-transparent outline-none resize-none overflow-hidden max-w-full leading-tight ${className}`}
+  className={`w-full bg-transparent outline-none resize-none overflow-hidden leading-tight ${className}`}
 />
   );
 };
@@ -72,12 +67,7 @@ export const EditableText = ({
   ref={ref}
   value={value}
   onChange={(e) => onChange(e.target.value)}
-  style={{
-    width: className.includes("border-dashed")
-      ? `${Math.max(value.length + 1, 4)}ch`
-      : undefined,
-  }}
-  className={`max-w-full bg-transparent outline-none resize-none overflow-hidden ${className}`}
+  className={`w-full bg-transparent outline-none resize-none overflow-hidden ${className}`}
   rows={1}
 />
   );

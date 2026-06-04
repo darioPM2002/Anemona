@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
+/* Props y tipos: forman el contrato del modal y los datos del formulario */
 type Props = {
   isOpen: boolean;
   tempUserId: string;
@@ -38,6 +39,7 @@ type PlantillaOpcion = {
   widgets?: { titulo: string }[];
 };
 
+/* Componente principal: formulario para crear proyecto/plantilla */
 export default function FormModal({
   isOpen,
   tempUserId,
@@ -46,6 +48,7 @@ export default function FormModal({
   onClose,
   onSubmit,
 }: Props) {
+  // estado del formulario con campos principales
   const [formData, setFormData] = useState<FormDataType>({
     solicitante: tempUserId || "",
     dga: "",
@@ -59,6 +62,7 @@ export default function FormModal({
     plantilla_id: "",
   });
 
+  // listas auxiliares (departamentos, plantillas) y flags de carga
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [loadingDepartamentos, setLoadingDepartamentos] = useState(false);
   const [openDep, setOpenDep] = useState(false);
@@ -69,14 +73,14 @@ export default function FormModal({
 
   const [submittingProject, setSubmittingProject] = useState(false);
 
-  // ── plantilla settings state ─────────────────────────────────────────────
+  // estados para gestión de plantillas (renombrar / eliminar)
   const [editingPlantillaId, setEditingPlantillaId] = useState<string | null>(null);
   const [editingNombre, setEditingNombre] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
-  // ── fetch departamentos ─────────────────────────────────────────────────
+  // ── fetch departamentos cuando se abre el modal ──
   useEffect(() => {
     async function fetchDepartamentos() {
       try {
@@ -93,7 +97,7 @@ export default function FormModal({
     if (isOpen) fetchDepartamentos();
   }, [isOpen]);
 
-  // ── fetch plantillas con preview de widgets ─────────────────────────────
+  // ── fetch plantillas y carga preview de widgets ──
   useEffect(() => {
     async function fetchPlantillas() {
       try {
@@ -102,6 +106,7 @@ export default function FormModal({
         if (!res.ok) throw new Error("No se pudieron cargar las plantillas");
         const lista: PlantillaOpcion[] = await res.json();
 
+        // enriquecer con detalle de widgets para mostrar preview
         const enriquecidas = await Promise.all(
           lista.map(async (p) => {
             try {
@@ -125,7 +130,7 @@ export default function FormModal({
     if (isOpen) fetchPlantillas();
   }, [isOpen]);
 
-  // ── auto-llenado solicitante / contacto ─────────────────────────────────
+  // ── auto-llenado de solicitante / contacto desde localStorage ──
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
     const nombre = localStorage.getItem("nombre") || "";
@@ -137,6 +142,7 @@ export default function FormModal({
       .filter(Boolean)
       .join(" ")
       .trim();
+    // pre-llenar campos de forma no destructiva
     setFormData((prev) => ({
       ...prev,
       solicitante: nombreCompleto,
@@ -145,7 +151,7 @@ export default function FormModal({
     setTempUserId(idusuario);
   }, [isOpen, tempUserId, setTempUserId]);
 
-  // ── click fuera del dropdown de departamentos ───────────────────────────
+  // ── cerrar dropdown al hacer click fuera ──
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -159,6 +165,7 @@ export default function FormModal({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // togglear selección de departamentos en el array
   function toggleDepartamento(id: string) {
     setFormData((prev) => ({
       ...prev,
@@ -168,10 +175,12 @@ export default function FormModal({
     }));
   }
 
+  // helper para actualizar campos del formulario
   function handleChange(key: keyof FormDataType, value: string) {
     setFormData((prev) => ({ ...prev, [key]: value }));
   }
 
+  // texto mostrado en el selector de departamentos
   function getDepartamentosSeleccionados() {
     if (formData.departamentos.length === 0) return "";
     return departamentos
@@ -182,7 +191,7 @@ export default function FormModal({
       .join(", ");
   }
 
-  // ── rename plantilla ────────────────────────────────────────────────────
+  // ── renombrar plantilla (llamada al backend y actualizar UI) ──
   async function handleRenameSubmit(plantillaId: string) {
     if (!editingNombre.trim()) return;
     try {
@@ -210,7 +219,7 @@ export default function FormModal({
     }
   }
 
-  // ── delete plantilla ────────────────────────────────────────────────────
+  // ── eliminar plantilla ──
   async function handleDeletePlantilla(plantillaId: string) {
     try {
       setDeletingId(plantillaId);
@@ -229,6 +238,7 @@ export default function FormModal({
     }
   }
 
+  // validación básica del formulario (solo habilita botón si hay datos)
   const isFormValid =
     formData.solicitante.trim() !== "" &&
     formData.dga.trim() !== "" &&
@@ -241,7 +251,7 @@ export default function FormModal({
     formData.tipo.trim() !== "" &&
     formData.plantilla_id.trim() !== "";
 
-  // ── submit ──────────────────────────────────────────────────────────────
+  // ── submit: crea proyecto en backend usando plantilla seleccionada ──
   async function handleSubmit() {
     try {
       setSubmittingProject(true);
@@ -290,6 +300,7 @@ export default function FormModal({
       if (!res.ok)
         throw new Error(data?.detail || "No se pudo crear el proyecto.");
 
+      // persistir ids/identificadores en sessionStorage para que la app cargue la sesión
       sessionStorage.setItem(
         "chat_user_id",
         data.user_id ?? payload.formulario.usuario_id ?? ""
@@ -304,6 +315,7 @@ export default function FormModal({
       setTempUserId(payload.formulario.usuario_id ?? "");
       sessionStorage.setItem("pending_selected_folio", String(data.folio));
 
+      // notificar al resto de la app que un proyecto fue creado
       window.dispatchEvent(
         new CustomEvent("project-created", {
           detail: { folio: data.folio },
@@ -323,6 +335,7 @@ export default function FormModal({
     }
   }
 
+  // definición de campos principales para render en grid
   const fields: {
     label: string;
     key: keyof FormDataType;
@@ -365,13 +378,14 @@ export default function FormModal({
     },
   ];
 
+  // no renderizar si el modal está cerrado
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[999] p-4">
       <div className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-3xl shadow-xl flex flex-col overflow-hidden">
 
-        {/* Imágenes decorativas */}
+        {/* Imágenes decorativas (sin impacto funcional) */}
         <img
           src="/images/RedBob.png"
           className="absolute -top-70 -right-20 w-50 pointer-events-none z-0"
@@ -396,7 +410,7 @@ export default function FormModal({
           <X size={20} />
         </button>
 
-        {/* ── Zona scrolleable ── */}
+        {/* ── Zona scrolleable con formulario ── */}
         <div className="relative z-10 flex-1 overflow-y-auto px-14 py-10">
           <h3
             className="text-2xl font-bold mb-2"
@@ -549,7 +563,7 @@ export default function FormModal({
 
                   return (
                     <div key={p.id}>
-                      {/* Card principal — div clickeable en lugar de button para evitar button>button */}
+                      {/* Card principal — clickable */}
                       <div
                         role="button"
                         tabIndex={0}
@@ -594,7 +608,7 @@ export default function FormModal({
                               </svg>
                             )}
 
-                            {/* Botón tuerca */}
+                            {/* Botón ajustes (abre panel de edición) */}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -758,7 +772,7 @@ export default function FormModal({
         </div>
         {/* ── Fin zona scrolleable ── */}
 
-        {/* ── Botones — fijos al fondo ── */}
+        {/* ── Botones fijos al fondo ── */}
         <div className="relative z-10 flex justify-end gap-5 px-14 py-6 border-t border-gray-100 bg-white shrink-0">
           <button
             onClick={onClose}

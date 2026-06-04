@@ -12,6 +12,7 @@ import {
 import { API_URL } from "@/services/api";
 import { renderWChart } from "./widgets/biblioteca_chart";
 
+/* Props del componente */
 type Props = {
   widgets: Widget[];
   changedFields?: Set<string>;
@@ -19,6 +20,7 @@ type Props = {
   onPaginationDone?: () => void;
 };
 
+/* Constantes de paginado / tamaños de página */
 const PAGE_CONTENT_HEIGHT = 856;
 const CONTENT_PADDING_TOP = 24;
 const CONTENT_PADDING_BOTTOM = 80;
@@ -30,16 +32,17 @@ export const USABLE_HEIGHT =
   CONTENT_PADDING_BOTTOM -
   PAGE_BREAK_SAFETY;
 
+/* Definición de bloque paginado */
 export type BlockDef = {
   id: string;
   node?: React.ReactNode;
-  chunkType?: "w003" | "w005" | "w006";
+  chunkType?: "w003" | "w005" | "w006"; // tipos que se parten por filas/lineas
   chunkRowIndices?: number[];
   chunkShowTitle?: boolean;
   chunkWidgetPos?: number;
 };
 
-// ── Helper global: convierte cualquier valor a string seguro para React ──
+// Helper: convierte cualquier valor a string segura para render
 const toStr = (v: any): string => {
   if (v === null || v === undefined) return "";
   if (typeof v === "object") return (v as any).valor ?? JSON.stringify(v);
@@ -52,22 +55,27 @@ const WidgetRenderer: React.FC<Props> = ({
   nombrePlantilla = "Levantamiento de Requerimiento",
   onPaginationDone,
 }) => {
+  // estado local de widgets y paginación
   const [widgets, setWidgets] = useState<Widget[]>(
     Array.isArray(initialWidgets) ? initialWidgets : []
   );
   const [loading, setLoading] = useState(false);
   const [pages, setPages] = useState<BlockDef[][]>([]);
   const [measured, setMeasured] = useState(false);
+
+  // refs para medición invisible de alturas (fase previa a crear páginas)
   const measureRefs = useRef<(HTMLDivElement | null)[]>([]);
   const rowRefs = useRef<{ [widgetPos: number]: (HTMLDivElement | null)[] }>({});
   const w003RowRefs = useRef<{ [widgetPos: number]: (HTMLTableRowElement | null)[] }>({});
   const w006BlockRefs = useRef<{ [widgetPos: number]: (HTMLDivElement | null)[] }>({});
   const suppressSpinnerRef = useRef(false);
 
+  // UI state
   const [showError, setShowError] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [localChangedFields, setLocalChangedFields] = useState<Set<string>>(new Set());
 
+  // util: setNestedValue para actualizar paths anidados en campos de widget
   const setNestedValue = (obj: any, path: string, value: any) => {
     const keys = path.split(".");
     const clone = Array.isArray(obj) ? [...obj] : { ...obj };
@@ -96,6 +104,7 @@ const WidgetRenderer: React.FC<Props> = ({
     return clone;
   };
 
+  // handler para cambios en campos: marca localChangedFields y actualiza estado widgets
   const handleChange = (posicion: number, key: string, value: any) => {
     const path = `${posicion}.campos.${key}`;
 
@@ -105,6 +114,7 @@ const WidgetRenderer: React.FC<Props> = ({
       return next;
     });
 
+    // quitar highlight local después de 1s
     setTimeout(() => {
       setLocalChangedFields((prev) => {
         const next = new Set(prev);
@@ -126,11 +136,13 @@ const WidgetRenderer: React.FC<Props> = ({
     );
   };
 
+  // widgets ordenados por posicion (para render/paginación)
   const sortedWidgets = useMemo(
     () => [...widgets].sort((a, b) => a.posicion - b.posicion),
     [widgets]
   );
 
+  // helpers para resaltar campos cambiados (tanto remotos como locales)
   const isHighlighted = (path: string) => {
     const allChanged = [
       ...(changedFields ? Array.from(changedFields) : []),
@@ -149,6 +161,7 @@ const WidgetRenderer: React.FC<Props> = ({
       ? "!bg-yellow-200 transition-all duration-700 rounded px-1"
       : "";
 
+  // Guardar widgets en backend
   const handleSave = async () => {
     const docId = sessionStorage.getItem("project_id") || "";
     if (!docId) {
@@ -171,7 +184,7 @@ const WidgetRenderer: React.FC<Props> = ({
         return;
       }
       setShowSuccess(true);
-      window.dispatchEvent(new CustomEvent("ers-refresh"));
+      window.dispatchEvent(new CustomEvent("ers-refresh")); // notifica cambios
     } catch (e) {
       console.error(e);
       setShowError(true);
@@ -180,6 +193,7 @@ const WidgetRenderer: React.FC<Props> = ({
     }
   };
 
+  // selecciona renderer por id_widget
   const renderWidget = (widget: Widget) => {
     switch (widget.id_widget) {
       case "w_000": return renderW000(widget, handleChange, highlight);
@@ -193,6 +207,7 @@ const WidgetRenderer: React.FC<Props> = ({
     }
   };
 
+  // descompone bloques w_006 en line-items para paginar por línea
   const getW006LineItems = (widget: Widget) => {
     const bloques: any[] = widget.campos?.bloques ?? [];
 
@@ -210,6 +225,7 @@ const WidgetRenderer: React.FC<Props> = ({
         const partes: string[] = [];
         let restante = line;
 
+        // corta por palabras para no partir palabras (aprox char limit)
         while (restante.length > maxChars) {
           let corte = restante.lastIndexOf(" ", maxChars);
           if (corte <= 0) corte = maxChars;
@@ -231,6 +247,7 @@ const WidgetRenderer: React.FC<Props> = ({
     });
   };
 
+  // clave que invalida la paginación cuando cambia estructura de widgets
   const paginationKey = useMemo(() => {
     return JSON.stringify(
       sortedWidgets.map((w) => ({ id_widget: w.id_widget, posicion: w.posicion }))
@@ -240,20 +257,24 @@ const WidgetRenderer: React.FC<Props> = ({
   const fitsInCurrentPage = (currentHeight: number, nextHeight: number) =>
     currentHeight + nextHeight <= USABLE_HEIGHT;
 
+  // reset cuando cambian los elementos a paginar
   useEffect(() => {
     setMeasured(false);
     setPages([]);
   }, [paginationKey]);
 
+  // sincroniza estado local con props iniciales
   useEffect(() => {
     const newWidgets = Array.isArray(initialWidgets) ? initialWidgets : [];
     setWidgets(newWidgets);
     setLocalChangedFields(new Set());
   }, [initialWidgets]);
 
+  // Fase de medición: render invisible para medir alturas y construir páginas
   useEffect(() => {
     if (measured) return;
 
+    // caso sin widgets: página intro por defecto
     if (sortedWidgets.length === 0) {
       setPages([[{ id: "intro", node: null }]]);
       setMeasured(true);
@@ -261,6 +282,7 @@ const WidgetRenderer: React.FC<Props> = ({
       return;
     }
 
+    // requestAnimationFrame doble para asegurar render y medidas de DOM
     const raf = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const heights = measureRefs.current.map((el) => el?.offsetHeight ?? 0);
@@ -269,17 +291,20 @@ const WidgetRenderer: React.FC<Props> = ({
         let currentPage: BlockDef[] = [];
         let currentHeight = 0;
 
+        // intro (texto inicial) siempre al inicio
         const introHeight = heights[0] ?? 0;
         currentPage.push({ id: "intro", node: null });
         currentHeight += introHeight;
 
+        // recorrer widgets y decidir si van completos o en chunks
         sortedWidgets.forEach((widget, i) => {
           const h = heights[i + 1];
 
-          // W003
+          // W003: tabla que puede partirse por filas
           if (widget.id_widget === "w_003") {
             const filas: any[] = widget.campos?.filas ?? [];
 
+            // si no hay filas tratar como bloque normal
             if (filas.length === 0) {
               const block: BlockDef = { id: `${widget.id_widget}-${widget.posicion}`, node: renderWidget(widget) };
               if (!fitsInCurrentPage(currentHeight, h) && currentPage.length > 0) {
@@ -290,6 +315,7 @@ const WidgetRenderer: React.FC<Props> = ({
               return;
             }
 
+            // alturas por fila (medidas en DOM invisible)
             const rowHeights = (w003RowRefs.current[widget.posicion] ?? []).map((el) => el?.offsetHeight ?? 0);
             const TITLE_H = 70;
             const HEADER_H = 34;
@@ -297,6 +323,7 @@ const WidgetRenderer: React.FC<Props> = ({
             let chunkHeight = TITLE_H + HEADER_H;
             let isFirst = true;
 
+            // flushChunk crea un bloque "chunk" que contiene filas consecutivas
             const flushChunk = () => {
               if (currentChunk.length === 0) return;
               currentPage.push({
@@ -312,6 +339,7 @@ const WidgetRenderer: React.FC<Props> = ({
               isFirst = false;
             };
 
+            // iterar filas, agrupar hasta que el chunk no quepa
             filas.forEach((_, rowIdx) => {
               const rh = rowHeights[rowIdx] ?? 34;
               if (currentChunk.length === 0 && !fitsInCurrentPage(currentHeight, chunkHeight + rh) && currentPage.length > 0) {
@@ -328,7 +356,7 @@ const WidgetRenderer: React.FC<Props> = ({
             return;
           }
 
-          // W006
+          // W006: bloques de texto que se partene línea a línea
           if (widget.id_widget === "w_006") {
             const lineas = getW006LineItems(widget);
 
@@ -379,7 +407,7 @@ const WidgetRenderer: React.FC<Props> = ({
             return;
           }
 
-          // W005
+          // W005: tabla/filas con lógica similar a W003 pero con TITLE_H distinto
           if (widget.id_widget === "w_005") {
             const filas: any[] = widget.campos?.filas ?? [];
 
@@ -414,6 +442,7 @@ const WidgetRenderer: React.FC<Props> = ({
               isFirst = false;
             };
 
+            // agrupar filas en chunk hasta que no quepan en la página
             filas.forEach((_, rowIdx) => {
               const rh = rowHeights[rowIdx] ?? 30;
               if (currentChunk.length === 0 && !fitsInCurrentPage(currentHeight, chunkHeight + rh) && currentPage.length > 0) {
@@ -430,7 +459,7 @@ const WidgetRenderer: React.FC<Props> = ({
             return;
           }
 
-          // Resto
+          // Resto de widgets: se intentan colocar completos
           const node = renderWidget(widget);
           if (!node) return;
 
@@ -442,6 +471,7 @@ const WidgetRenderer: React.FC<Props> = ({
           }
         });
 
+        // push última página si quedó contenido
         if (currentPage.length > 0) result.push(currentPage);
         setPages(result);
         setMeasured(true);
@@ -453,8 +483,7 @@ const WidgetRenderer: React.FC<Props> = ({
     return () => cancelAnimationFrame(raf);
   }, [sortedWidgets, measured]);
 
-  // ── Renders parciales ──
-
+  // ── Render parcial de W003 (tabla por chunks) ──
   const renderW003Partial = (widget: Widget, filasParciales: any[], showTitle: boolean) => {
     const campos = widget.campos || {};
     const defaultHeaders = campos.filas?.[0]
@@ -512,6 +541,7 @@ const WidgetRenderer: React.FC<Props> = ({
     );
   };
 
+  // renderizado formateado para W006 (listas, párrafos, numerados)
   const renderFormattedW006Text = (texto: string) => {
     const lines = String(texto ?? "")
       .split(/\r?\n/)
@@ -813,7 +843,7 @@ const WidgetRenderer: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Contenido */}
+          {/* Contenido paginado */}
           <div
             className="text-black text-[13px] leading-[1.28]"
             style={{

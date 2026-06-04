@@ -7,31 +7,14 @@ import { API_URL } from "@/services/api";
 import HelpTooltip from "./Helptooltip";
 import ProjectSettingsModal from "./Projectsettingsmodal";
 
+/* Tipos simples usados en el componente */
 type MsgRole = "user" | "bot" | "tool_call" | "tool_result";
-
-type Msg = {
-  id: number;
-  role: MsgRole;
-  text: string;
-  tool?: string;
-  isNew?: boolean;
-  timestamp?: number;
-};
-
-type HistoryEvent = {
-  author: "user" | "model";
-  parts: { type: string; text: string | null }[];
-  timestamp: number;
-};
-
-type LockInfo = {
-  idusuario: string;
-  nombre: string;
-};
-
+type Msg = { id: number; role: MsgRole; text: string; tool?: string; isNew?: boolean; timestamp?: number; };
+type HistoryEvent = { author: "user" | "model"; parts: { type: string; text: string | null }[]; timestamp: number; };
+type LockInfo = { idusuario: string; nombre: string; };
 type LockState = LockInfo | null | false;
 
-
+/* Small renderer for message text: soporta listas, párrafos y renderInline */
 function MiniMarkdown({ text }: { text: string }) {
   const lines = text.split("\n");
   return (
@@ -39,6 +22,7 @@ function MiniMarkdown({ text }: { text: string }) {
       {lines.map((line, i) => {
         const listMatch = line.match(/^[\*\-]\s+(.+)/);
         if (listMatch) {
+          // renderiza items de lista simples con bullet personalizado
           return (
             <div key={i} className="flex items-start gap-2">
               <span className="text-[#EB0029] mt-0.5 flex-shrink-0">•</span>
@@ -46,20 +30,21 @@ function MiniMarkdown({ text }: { text: string }) {
             </div>
           );
         }
-        if (!line.trim()) return <div key={i} className="h-1" />;
-        return <p key={i}>{renderInline(line)}</p>;
+        if (!line.trim()) return <div key={i} className="h-1" />; // espacio vacío
+        return <p key={i}>{renderInline(line)}</p>; // párrafo normal
       })}
     </div>
   );
 }
 
+/* Parse inline markdown: **bold**, *italic*, [text](url) */
 function renderInline(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|\[(.+?)\]\((.+?)\))/g;
   let last = 0;
   let match;
   while ((match = regex.exec(text)) !== null) {
-    if (match.index > last) parts.push(text.slice(last, match.index));
+    if (match.index > last) parts.push(text.slice(last, match.index)); // texto entre coincidencias
     if (match[0].startsWith("**")) {
       parts.push(<strong key={match.index} className="font-semibold text-gray-800">{match[2]}</strong>);
     } else if (match[0].startsWith("*")) {
@@ -77,9 +62,7 @@ function renderInline(text: string): React.ReactNode {
   return parts.length > 0 ? parts : text;
 }
 
-// ─── Helpers de sincronización ────────────────────────────────────────────────
-
-/** Convierte los eventos del API a mensajes del chat (solo los que tienen texto) */
+/* Convierte eventos remotos a mensajes simples (toma la primera parte type="text") */
 function parseHistoryEvents(events: HistoryEvent[]): Msg[] {
   const msgs: Msg[] = [];
   let idCounter = 1;
@@ -97,11 +80,10 @@ function parseHistoryEvents(events: HistoryEvent[]): Msg[] {
 }
 
 /**
- * Pide el historial remoto y lo mergea con el caché local.
- * Reglas:
- *  - Si un mensaje remoto ya existe en caché (por timestamp), no lo duplica.
- *  - Si hay mensajes remotos nuevos, los agrega y ordena por timestamp.
- *  - Si el fetch falla, devuelve el caché sin cambios.
+ * Obtiene historial remoto y lo mergea con el caché local.
+ * - Si el caché está vacío usa remoto.
+ * - Evita duplicados comparando role+texto (normalizado).
+ * - Ordena por timestamp y reasigna ids locales.
  */
 async function syncSessionHistory(
   nextUserId: string,
@@ -115,13 +97,11 @@ async function syncSessionHistory(
     if (!res.ok) return { synced: cachedMessages, changed: false };
 
     const data = await res.json();
-    console.log("[ChatBot] Historial remoto obtenido: %d eventos", data.events?.length ?? 0);
     const remoteEvents: HistoryEvent[] = data.events ?? [];
     const remoteMessages = parseHistoryEvents(remoteEvents);
 
     if (remoteMessages.length === 0) return { synced: cachedMessages, changed: false };
 
-    // Si el caché solo tiene el mensaje de bienvenida (o está vacío), usar remoto directo
     const isEmptyCache =
       cachedMessages.length === 0 ||
       (cachedMessages.length === 1 && cachedMessages[0].role === "bot" && !cachedMessages[0].timestamp);
@@ -131,21 +111,13 @@ async function syncSessionHistory(
       return { synced, changed: true };
     }
 
-    //COMENTADO ARI
-    // Construir set de timestamps ya presentes en caché
-    //const cachedTimestamps = new Set(
-      //cachedMessages.map((m) => m.timestamp).filter(Boolean)
-
-
-    // Filtrar solo los mensajes remotos que NO están en caché
+    // deduplicación por texto normalizado (puede dar falsos positivos si el mismo texto aparece distinto contexto)
     const normalize = (t: string) => t.trim().replace(/\s+/g, " ");
- 
     const cachedKeys = new Set(
       cachedMessages
         .filter((m) => m.role === "user" || m.role === "bot")
         .map((m) => `${m.role}|${normalize(m.text)}`)
     );
- 
     const newMessages = remoteMessages.filter(
       (m) => !cachedKeys.has(`${m.role}|${normalize(m.text)}`)
     );
@@ -164,14 +136,13 @@ async function syncSessionHistory(
   }
 }
 
-// ─── Componente principal ──────────────────────────────────────────────────────
-
+/* ── Componente principal: estado, refs y lógica del chat ── */
 export default function ChatBot() {
+  // estado UI / sesión / flags
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Msg[]>([
     { id: 1, role: "bot", text: "Hola 👋 Soy tu asistente. ¿En qué te puedo ayudar?" },
   ]);
-
   const [userId, setUserId] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -181,6 +152,7 @@ export default function ChatBot() {
   const [isThinking, setIsThinking] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
+  // refs y utilidades para control de ids y eventos stream
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [localChatReady, setLocalChatReady] = useState(false);
@@ -191,26 +163,27 @@ export default function ChatBot() {
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const msgIdRef = useRef(Date.now());
-  const nextId = () => ++msgIdRef.current;
+  const nextId = () => ++msgIdRef.current; // generador local de ids
   const activeBotIdRef = useRef<number | null>(null);
   const lastEventRef = useRef<"text" | "tool" | null>(null);
 
+  // proyecto: folio y nombre guardados en sessionStorage
   const [projectFolio, setProjectFolio] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const saved = sessionStorage.getItem("project_folio");
     return saved ? Number(saved) : null;
   });
-
   const [projectName, setProjectName] = useState(() => {
     if (typeof window === "undefined") return "Mi Proyecto";
     return sessionStorage.getItem("project_name") || "Mi Proyecto";
   });
 
   useEffect(() => {
+    // efecto de montaje: limpiar heartbeat al desmontar
     console.log("CHATBOT MONTADO");
-    return () => { 
+    return () => {
       console.log("CHATBOT DESMONTADO");
-      stopHeartbeat(); 
+      stopHeartbeat();
     };
   }, []);
 
@@ -227,11 +200,10 @@ export default function ChatBot() {
     guardar_en_firestore: "Guardando en Firestore",
   };
 
-  // Lock helpers
+  // Helpers para lock/heartbeat
   const getToken = () => localStorage.getItem("token") ?? "";
   const getLoggedUserId = () =>
-    sessionStorage.getItem("logged_user_id") ||
-    localStorage.getItem("idusuario") || "";
+    sessionStorage.getItem("logged_user_id") || localStorage.getItem("idusuario") || "";
 
   const stopHeartbeat = useCallback(() => {
     if (heartbeatRef.current) {
@@ -249,7 +221,7 @@ export default function ChatBot() {
           headers: { Authorization: `Bearer ${getToken()}` },
         });
       } catch {}
-    }, 90 * 1000); // se activa cada 90s
+    }, 90 * 1000);
   }, [stopHeartbeat]);
 
   const releaseProject = useCallback(async (folio: number) => {
@@ -258,11 +230,11 @@ export default function ChatBot() {
       await fetch(`${API_URL}/proyectos/${folio}/lock`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${getToken()}` },
-        keepalive: true, // funciona aunque la pestaña esté cerrándose
+        keepalive: true,
       });
     } catch {}
   }, [stopHeartbeat]);
- 
+
   const lockProject = useCallback(async (folio: number) => {
     try {
       const res = await fetch(`${API_URL}/proyectos/${folio}/lock`, {
@@ -271,7 +243,7 @@ export default function ChatBot() {
       });
 
       if (res.ok) {
-        setLockedBy(false); 
+        setLockedBy(false); // libre para editar
         startHeartbeat(folio);
         return;
       }
@@ -279,11 +251,10 @@ export default function ChatBot() {
       if (res.status === 409) {
         const err = await res.json().catch(() => null);
         const info = err?.detail?.locked_by as LockInfo | undefined;
-        setLockedBy(info ?? { idusuario: "?", nombre: "otro usuario" });
+        setLockedBy(info ?? { idusuario: "?", nombre: "otro usuario" }); // mostrar quien tiene lock
         return;
       }
- 
-      //Libre para no bloquear innecesariamente con cualquier otro error dejar
+
       console.warn("[Lock] Respuesta inesperada:", res.status);
       setLockedBy(false);
     } catch (e) {
@@ -292,8 +263,7 @@ export default function ChatBot() {
     }
   }, [startHeartbeat]);
 
-
-  // Liberar al cerrar o recargar pestaña
+  // liberar lock al cerrar pestaña
   useEffect(() => {
     const handleUnload = () => {
       const folio = sessionStorage.getItem("project_folio");
@@ -308,26 +278,21 @@ export default function ChatBot() {
     return () => window.removeEventListener("beforeunload", handleUnload);
   }, []);
 
-  // chatBlocked = true solo cuando otro usuario tiene el lock
-  const chatBlocked = lockedBy !== null && lockedBy !== false;
+  const chatBlocked = lockedBy !== null && lockedBy !== false; // true solo si otro usuario bloqueó
 
-
-
-  // ─── Carga de sesión con sync remoto ────────────────────────────────────────
-
+  /* Carga de sesión: muestra caché, sincroniza con server y gestiona lock */
   const loadSessionData = async (nextUserId: string, nextSessionId: string, nextFolio?: number) => {
     console.log(`[ChatBot] Cargando sesión user_id=${nextUserId} session_id=${nextSessionId} folio=${nextFolio}`);
- 
+
     setUserId(nextUserId);
     setSessionId(nextSessionId);
     setTempUserId(nextUserId);
     setShowLoginModal(false);
 
-
     const savedInput = localStorage.getItem(getInputKey(nextSessionId));
     setInput(savedInput || "");
 
-    // 1️⃣ Mostrar caché local de inmediato
+    // 1) Mostrar caché local inmediato
     const WELCOME: Msg = { id: 1, role: "bot", text: "Hola 👋 Soy tu asistente. ¿En qué te puedo ayudar?" };
     let cachedMessages: Msg[] = [WELCOME];
 
@@ -336,44 +301,39 @@ export default function ChatBot() {
       try {
         const parsed: Msg[] = JSON.parse(savedMessages);
         if (parsed.length > 0) cachedMessages = parsed;
-      } catch { /* usar default */}
+      } catch { /* ignore */ }
     }
 
+    // asegurar que msgIdRef no colisione con ids guardados
     const maxIdCached = Math.max(...cachedMessages.map((m) => m.id), 0);
     msgIdRef.current = Math.max(msgIdRef.current, maxIdCached + 1);
     setMessages(cachedMessages);
 
-    // 2️⃣ Sincronizar con historial remoto en segundo plano
+    // 2) sincronizar historial remoto en segundo plano
     const { synced, changed } = await syncSessionHistory(nextUserId, nextSessionId, cachedMessages);
-
     if (changed) {
       const maxIdSynced = Math.max(...synced.map((m) => m.id), 0);
       msgIdRef.current = Math.max(msgIdRef.current, maxIdSynced + 1);
       setMessages(synced);
       localStorage.setItem(getMessagesKey(nextSessionId), JSON.stringify(synced));
-      console.log(`[ChatBot] Sync: ${synced.length - cachedMessages.length} mensaje(s) nuevo(s) agregado(s)`);
     }
 
     const realUserId = getLoggedUserId() || nextUserId;
     checkPermiso(realUserId, nextSessionId);
- 
+
     const folioParaLock = nextFolio ?? Number(sessionStorage.getItem("project_folio") ?? "0");
     if (folioParaLock) {
-      setLockedBy(null); // mostrar estado "verificando" mientras llega la respuesta
- 
-      // Liberar el lock del proyecto anterior si cambió
+      setLockedBy(null); // estado "verificando"
       const folioAnterior = Number(sessionStorage.getItem("project_folio_anterior") ?? "0");
       if (folioAnterior && folioAnterior !== folioParaLock) {
         releaseProject(folioAnterior);
       }
       sessionStorage.setItem("project_folio_anterior", String(folioParaLock));
- 
       lockProject(folioParaLock);
     }
   };
 
-  // ─── Efectos ─────────────────────────────────────────────────────────────────
-
+  /* Efecto: escucha cambios de sesión disparados globalmente */
   useEffect(() => {
     const handleSessionChanged = (event: Event) => {
       const e = event as CustomEvent<{ userId: string; sessionId: string; projectId?: string; folio?: number; nombreproyecto?: string }>;
@@ -395,50 +355,44 @@ export default function ChatBot() {
     return () => window.removeEventListener("chat-session-changed", handleSessionChanged);
   }, []);
 
-  // En ChatBot.tsx, reemplaza el useEffect del intervalo:
+  /* Efecto: polling para detectar cambios en Firestore y disparar refresh visual */
+  const lastWidgetsHashRef = useRef<string>("");
+  useEffect(() => {
+    const checkForChanges = async () => {
+      try {
+        const docId = sessionStorage.getItem("project_id");
+        if (!docId) return;
+        const res = await fetch(
+          `${API_URL}/firestore/bajar?doc_id=${encodeURIComponent(docId)}`,
+          { method: "GET", headers: { accept: "application/json" }, cache: "no-store" }
+        );
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!json.ok || !json.data) return;
+        const hash = JSON.stringify(json.data);
+        if (hash !== lastWidgetsHashRef.current) {
+          lastWidgetsHashRef.current = hash;
+          window.dispatchEvent(new CustomEvent("ers-refresh")); // notifica al resto
+        }
+      } catch {}
+    };
+    const refreshInterval = setInterval(checkForChanges, 5000);
+    return () => {
+      clearInterval(refreshInterval);
+      stopHeartbeat();
+    };
+  }, []);
 
-const lastWidgetsHashRef = useRef<string>("");
-
-useEffect(() => {
-  const checkForChanges = async () => {
-    try {
-      const docId = sessionStorage.getItem("project_id");
-      if (!docId) return;
-
-      const res = await fetch(
-        `${API_URL}/firestore/bajar?doc_id=${encodeURIComponent(docId)}`,
-        { method: "GET", headers: { accept: "application/json" }, cache: "no-store" }
-      );
-      if (!res.ok) return;
-
-      const json = await res.json();
-      if (!json.ok || !json.data) return;
-
-      const hash = JSON.stringify(json.data);
-      if (hash !== lastWidgetsHashRef.current) {
-        lastWidgetsHashRef.current = hash;
-        window.dispatchEvent(new CustomEvent("ers-refresh"));
-      }
-    } catch {}
-  };
-
-  const refreshInterval = setInterval(checkForChanges, 5000);
-
-  return () => {
-    clearInterval(refreshInterval);
-    stopHeartbeat();
-  };
-}, []);
-
+  // auto-scroll cuando cambian mensajes o el bot está pensando
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isThinking]);
 
+  // al montar intenta restaurar sesión desde sessionStorage
   useEffect(() => {
     const savedSessionId = sessionStorage.getItem("chat_session_id");
     const savedUserId = sessionStorage.getItem("chat_user_id");
     const savedFolio = sessionStorage.getItem("project_folio");
     const savedName = sessionStorage.getItem("project_name");
     if (savedUserId && savedSessionId) {
-
       loadSessionData(savedUserId, savedSessionId, savedFolio ? Number(savedFolio) : undefined);
     } else {
       setShowLoginModal(true);
@@ -448,34 +402,32 @@ useEffect(() => {
     setLocalChatReady(true);
   }, []);
 
+  // persistencia local del chat mientras la sesión está activa
   useEffect(() => {
     if (!localChatReady || !sessionId) return;
     localStorage.setItem(getMessagesKey(sessionId), JSON.stringify(messages));
   }, [messages, localChatReady, sessionId]);
-
   useEffect(() => {
     if (!localChatReady || !sessionId) return;
     localStorage.setItem(getInputKey(sessionId), input);
   }, [input, localChatReady, sessionId]);
 
+  // focus automático en input cuando corresponde
   useEffect(() => {
     if (userId && sessionId && !showLoginModal && !chatBlocked)
       setTimeout(() => inputRef.current?.focus(), 0);
   }, [userId, sessionId, showLoginModal, chatBlocked]);
- 
   useEffect(() => {
     if (!loadingMessage && userId && sessionId && !showLoginModal && !chatBlocked)
       setTimeout(() => inputRef.current?.focus(), 0);
   }, [loadingMessage, userId, sessionId, showLoginModal, chatBlocked]);
 
-  // ─── Handlers ────────────────────────────────────────────────────────────────
-
+  /* Handler utilizado desde el modal de creación: carga sesión y muestra mensaje por defecto si es nuevo */
   function handleProjectCreated() {
     const savedUserId = sessionStorage.getItem("chat_user_id");
     const savedSessionId = sessionStorage.getItem("chat_session_id");
     const savedFolioPC = sessionStorage.getItem("project_folio");
     if (savedUserId && savedSessionId) {
-
       loadSessionData(savedUserId, savedSessionId, savedFolioPC ? Number(savedFolioPC) : undefined);
       if (!localStorage.getItem(getMessagesKey(savedSessionId)))
         setMessages([{ id: 1, role: "bot", text: "Proyecto y sesión creados. Ya puedes chatear." }]);
@@ -483,6 +435,7 @@ useEffect(() => {
     setShowLoginModal(false);
   }
 
+  /* Crear sesión nueva en el backend */
   async function createSession() {
     const cleanUserId = tempUserId.trim();
     if (!cleanUserId) return;
@@ -512,6 +465,7 @@ useEffect(() => {
     }
   }
 
+  /* Envío de un mensaje: añade mensaje usuario, hace POST streaming y consume eventos (text/tool/done) */
   async function send() {
     if (chatBlocked) return;
     const text = input.trim();
@@ -545,6 +499,7 @@ useEffect(() => {
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
 
+      // lectura en streaming: el backend envía líneas "data: { ... }"
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -554,10 +509,10 @@ useEffect(() => {
           if (!line.startsWith("data: ")) continue;
           try {
             const event = JSON.parse(line.slice(6));
-
             if (event.type === "text") {
               setIsThinking(false);
               if (activeBotIdRef.current === null || lastEventRef.current === "tool") {
+                // nuevo mensaje de bot
                 const newBotId = nextId();
                 activeBotIdRef.current = newBotId;
                 setMessages((prev) => [...prev, {
@@ -568,6 +523,7 @@ useEffect(() => {
                   timestamp: Date.now() / 1000,
                 }]);
               } else {
+                // concatena fragmentos de texto al mensaje activo (streaming parcial)
                 const currentId = activeBotIdRef.current;
                 setMessages((prev) =>
                   prev.map((m) => m.id === currentId ? { ...m, text: m.text + event.data } : m)
@@ -576,6 +532,7 @@ useEffect(() => {
               lastEventRef.current = "text";
 
             } else if (event.type === "tool_call") {
+              // representa una llamada a herramienta / proceso
               setIsThinking(false);
               lastEventRef.current = "tool";
               setMessages((prev) => [...prev, {
@@ -587,6 +544,7 @@ useEffect(() => {
               }]);
 
             } else if (event.type === "tool_result") {
+              // la herramienta devolvió resultado; marcar el mensaje correspondiente
               lastEventRef.current = "tool";
               setIsThinking(true);
               setMessages((prev) => {
@@ -603,12 +561,13 @@ useEffect(() => {
 
             } else if (event.type === "done") {
               setIsThinking(false);
-              window.dispatchEvent(new CustomEvent("ers-refresh"));
+              window.dispatchEvent(new CustomEvent("ers-refresh")); // notifica que terminó
             }
           } catch { /* línea incompleta, ignorar */ }
         }
       }
     } catch (error) {
+      // en caso de error muestra mensaje del bot con el error
       setMessages((prev) => [...prev, {
         id: nextId(),
         role: "bot",
@@ -624,8 +583,7 @@ useEffect(() => {
     }
   }
 
-  // ─── Render helpers ───────────────────────────────────────────────────────────
-
+  /* Render helpers para chips de herramienta y mensajes normales (bot/user) */
   function renderToolChip(m: Msg) {
     const isDone = m.role === "tool_result";
     const label = toolLabels[m.tool ?? ""] ?? m.tool ?? "Procesando";
@@ -693,6 +651,7 @@ useEffect(() => {
     );
   }
 
+  /* Comprueba permiso/propiedad en backend para ajustar UI (isOwner) */
   const checkPermiso = async (uid: string, sid: string) => {
     setChecking(true);
     try {

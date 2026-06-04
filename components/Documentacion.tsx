@@ -1,11 +1,12 @@
 "use client";
 
-// ─── Relaciones con otros archivos ───────────────────────────────────────────
-// - Usa DynamicVisor.tsx (WidgetRenderer) para mostrar el documento
-// - Usa WidgetsModal.tsx para el modal de widgets arrastrables
-// - Lee sessionStorage["project_id"] para saber qué doc cargar de Firestore
-// - Detecta cambios del chat y los pasa como changedFields a WidgetRenderer
-// ─────────────────────────────────────────────────────────────────────────────
+/*
+  Documentacion.tsx
+  - Muestra / gestiona la vista de salida (ERS, Análisis, Arquitectura)
+  - Carga datos desde Firestore, detecta cambios y actualiza widgets
+  - Permite descargar y enviar por correo el documento
+  Comentarios breves y selectos para entender la lógica.
+*/
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -25,7 +26,7 @@ import { API_URL } from "@/services/api";
 
 const API_BASE = `${API_URL}`;
 
-
+/* Popup simple que confirma descarga exitosa */
 function DownloadPopup({ docName, onClose }: { docName: string; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -51,6 +52,7 @@ function DownloadPopup({ docName, onClose }: { docName: string; onClose: () => v
   );
 }
 
+/* Popup para feedback de envío por correo */
 function EmailPopup({ success, message, onClose }: { success: boolean; message: string; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -77,6 +79,8 @@ function EmailPopup({ success, message, onClose }: { success: boolean; message: 
     </div>
   );
 }
+
+/* stableHash: genera representación determinista para comparar estructuras */
 const stableHash = (obj: any): string => {
   if (Array.isArray(obj)) return "[" + obj.map(stableHash).join(",") + "]";
   if (obj !== null && typeof obj === "object") {
@@ -87,9 +91,11 @@ const stableHash = (obj: any): string => {
 };
 
 export default function Documentacion({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
+  // pestaña activa y estados UI
   const [tab, setTab] = useState<"ERS" | "Análisis" | "Arquitectura">("ERS");
   const [showPopup, setShowPopup] = useState(false);
   const [loadingERS, setLoadingERS] = useState(true);
+  // changedFields: campos detectados como cambiados (usado para resaltar)
   const [changedFields, setChangedFields] = useState<Set<string>>(new Set());
   const [widgets, setWidgets] = useState<Widget[]>([]);
   const [isWidgetsOpen, setIsWidgetsOpen] = useState(false);
@@ -99,21 +105,23 @@ export default function Documentacion({ expanded, onToggle }: { expanded: boolea
   const [emailPopup, setEmailPopup] = useState<{ show: boolean; success: boolean; message: string }>({
     show: false, success: false, message: "",
   });
-const DOC_NAMES: Record<"ERS" | "Análisis" | "Arquitectura", string> = {
-  ERS: nombrePlantilla,          // ← dinámico
-  Análisis: "Documento de Análisis",
-  Arquitectura: "Diseño de Arquitectura",
-};
 
-  // Ref para capturar la función de descarga PDF del diagrama de arquitectura
+  const DOC_NAMES: Record<"ERS" | "Análisis" | "Arquitectura", string> = {
+    ERS: nombrePlantilla,          // ← dinámico
+    Análisis: "Documento de Análisis",
+    Arquitectura: "Diseño de Arquitectura",
+  };
+
+  // referencia para descargar PDF desde el componente de arquitectura
   const arqDownloadRef = useRef<(() => Promise<void>) | null>(null);
 
+  // refs para detectar cambios entre cargas
   const prevRawDataRef = useRef<any>(null);
   const prevDocIdRef = useRef<string>(""); 
   const widgetsHashRef = useRef<string>("");
-  // guarda la posición antes de actualizar en el contenedor screolleable
+  // scroll: conservar posición al re-render/paginación
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-const scrollPositionRef = useRef<number>(0);
+  const scrollPositionRef = useRef<number>(0);
 
   const getActiveProjectId = () => {
     if (typeof window === "undefined") return "";
@@ -125,28 +133,32 @@ const scrollPositionRef = useRef<number>(0);
     return localStorage.getItem("token") || "";
   };
 
-const mapDataToWidgets = (data: any): Widget[] => {
-  console.log("🔴 mapDataToWidgets →", data);
-  return Object.entries(data)
-    .filter(([key]) => !isNaN(Number(key)))  // solo llaves numéricas (posiciones)
-    .sort(([a], [b]) => Number(a) - Number(b))  // ordenar por posición
-    .map(([key, w]: [string, any]) => ({
-      posicion: Number(key),
-      id_widget: w.id_widget ?? key,
-      titulo: w.titulo ?? key,
-      objetivo_widget: w.objetivo_widget ?? "",
-      descripcion_campos: w.descripcion_campos ?? {},
-      campos: w.campos ?? {},
-    }));
-};
+  /* Mapea la estructura Firestore a la forma internal de widgets */
+  const mapDataToWidgets = (data: any): Widget[] => {
+    console.log("🔴 mapDataToWidgets →", data);
+    return Object.entries(data)
+      .filter(([key]) => !isNaN(Number(key)))  // solo llaves numéricas (posiciones)
+      .sort(([a], [b]) => Number(a) - Number(b))  // ordenar por posición
+      .map(([key, w]: [string, any]) => ({
+        posicion: Number(key),
+        id_widget: w.id_widget ?? key,
+        titulo: w.titulo ?? key,
+        objetivo_widget: w.objetivo_widget ?? "",
+        descripcion_campos: w.descripcion_campos ?? {},
+        campos: w.campos ?? {},
+      }));
+  };
 
+  /* Efecto principal: carga ERS, detecta cambios y actualiza widgets */
   useEffect(() => {
     let isMounted = true;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
+    /* detectChanges: compara recursivamente y devuelve paths cambiados */
     const detectChanges = (oldData: any, newData: any) => {
       const changed = new Set<string>();
       const compare = (obj1: any, obj2: any, path = "") => {
+        // si es array, comparar por índice
         if (Array.isArray(obj2)) {
           obj2.forEach((item, index) => {
             const newPath = path ? `${path}.${index}` : `${index}`;
@@ -158,6 +170,7 @@ const mapDataToWidgets = (data: any): Widget[] => {
           });
           return;
         }
+        // si es objeto, recorrer claves
         for (const key in obj2) {
           const newPath = path ? `${path}.${key}` : key;
           if (typeof obj2[key] === "object" && obj2[key] !== null) {
@@ -171,6 +184,7 @@ const mapDataToWidgets = (data: any): Widget[] => {
       return changed;
     };
 
+    /* fetchERS: obtiene doc desde Firestore y decide highlight / actualización */
     const fetchERS = async (shouldHighlight: boolean = false) => {
       try {
         const docId = getActiveProjectId();
@@ -189,62 +203,64 @@ const mapDataToWidgets = (data: any): Widget[] => {
         console.log("🟢 json.data →", json.data);
 
         if (isMounted && json.ok && json.data) {
-         setNombrePlantilla(json.data?.nombre_plantilla || "Documento");
-        const isDifferentProject = prevDocIdRef.current !== docId;
+          // actualizar nombre de plantilla si viene en el doc
+          setNombrePlantilla(json.data?.nombre_plantilla || "Documento");
 
-  const suppressHighlight =
-  sessionStorage.getItem("suppress_ers_highlight") === "1";
+          const isDifferentProject = prevDocIdRef.current !== docId;
 
-if (suppressHighlight) {
-  sessionStorage.removeItem("suppress_ers_highlight");
-}
+          const suppressHighlight =
+            sessionStorage.getItem("suppress_ers_highlight") === "1";
 
-          // Si cambiaste de proyecto, NO compares contra el anterior.
-          // Solo carga el documento limpio.
+          if (suppressHighlight) {
+            sessionStorage.removeItem("suppress_ers_highlight");
+          }
+
+          // Si cambiamos de proyecto, cargar sin comparar (nuevo contexto)
           if (isDifferentProject) {
-  prevDocIdRef.current = docId;
-  prevRawDataRef.current = json.data;
-  const newWidgets = mapDataToWidgets(json.data);
-  const newHash = stableHash(newWidgets);
-  if (newHash !== widgetsHashRef.current) {
-    const currentScroll = scrollContainerRef.current?.scrollTop ?? 0;
-scrollPositionRef.current = currentScroll;
-    widgetsHashRef.current = newHash;
-    setWidgets(newWidgets);
-  }
-  setChangedFields(new Set());
-  return;
-}
+            prevDocIdRef.current = docId;
+            prevRawDataRef.current = json.data;
+            const newWidgets = mapDataToWidgets(json.data);
+            const newHash = stableHash(newWidgets);
+            if (newHash !== widgetsHashRef.current) {
+              const currentScroll = scrollContainerRef.current?.scrollTop ?? 0;
+              scrollPositionRef.current = currentScroll;
+              widgetsHashRef.current = newHash;
+              setWidgets(newWidgets);
+            }
+            setChangedFields(new Set()); // limpiar highlights
+            return;
+          }
 
-  // Solo highlightear cuando explícitamente venga de "Guardar" o "Enviar".
-  const changes =
-    shouldHighlight && prevRawDataRef.current
-      ? detectChanges(prevRawDataRef.current, json.data)
-      : new Set<string>();
+          // Solo highlight cuando explícitamente indicado (p. ej. tras guardar)
+          const changes =
+            shouldHighlight && prevRawDataRef.current
+              ? detectChanges(prevRawDataRef.current, json.data)
+              : new Set<string>();
 
-  if (changes.size > 0) {
-    console.log("🟡 changedFields:", [...changes]);
-    setChangedFields(changes);
+          if (changes.size > 0) {
+            // guardar paths cambiados y limpiar después de un timeout corto
+            console.log("🟡 changedFields:", [...changes]);
+            setChangedFields(changes);
 
-    if (timeoutId) clearTimeout(timeoutId);
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+              if (isMounted) setChangedFields(new Set());
+            }, 1000);
+          } else {
+            setChangedFields(new Set());
+          }
 
-    timeoutId = setTimeout(() => {
-      if (isMounted) setChangedFields(new Set());
-    }, 1000);
-  } else {
-    setChangedFields(new Set());
-  }
-
-  prevRawDataRef.current = json.data;
-const newWidgets = mapDataToWidgets(json.data);
-const newHash = stableHash(newWidgets);
-if (newHash !== widgetsHashRef.current) {
-  const currentScroll = scrollContainerRef.current?.scrollTop ?? 0;
-scrollPositionRef.current = currentScroll;
-  widgetsHashRef.current = newHash;
-  setWidgets(newWidgets);
-}
-}
+          // almacenar snapshot actual y actualizar widgets si cambió
+          prevRawDataRef.current = json.data;
+          const newWidgets = mapDataToWidgets(json.data);
+          const newHash = stableHash(newWidgets);
+          if (newHash !== widgetsHashRef.current) {
+            const currentScroll = scrollContainerRef.current?.scrollTop ?? 0;
+            scrollPositionRef.current = currentScroll;
+            widgetsHashRef.current = newHash;
+            setWidgets(newWidgets);
+          }
+        }
       } catch (error) {
         console.error("Error cargando ERS:", error);
       } finally {
@@ -252,42 +268,44 @@ scrollPositionRef.current = currentScroll;
       }
     };
 
+    /* handler usado cuando se quiere refrescar y además resaltar cambios */
     const handleRefreshWithHighlight = () => {
       setTimeout(() => fetchERS(true), 100);
     };
 
+    /* cambio de proyecto: limpiar estado y recargar sin highlight */
     const handleProjectChange = () => {
-  setChangedFields(new Set());
-  prevRawDataRef.current = null;
-  prevDocIdRef.current = "";
-  setWidgets([]);
+      setChangedFields(new Set());
+      prevRawDataRef.current = null;
+      prevDocIdRef.current = "";
+      setWidgets([]);
+      setTimeout(() => fetchERS(false), 100);
+    };
 
-  setTimeout(() => fetchERS(false), 100);
-};
-
-    // Carga inicial sin highlight
+    // carga inicial
     fetchERS(false);
 
-    // Este evento sí highlightea porque viene de guardar/enviar cambios
+    // eventos: ers-refresh (resaltar) y document-project-change (cambio)
     window.addEventListener("ers-refresh", handleRefreshWithHighlight);
-
-
-    // Este evento NO highlightea porque es cambio de proyecto/sesión
     window.addEventListener("document-project-change", handleProjectChange);
+
+    // cleanup al desmontar efecto
     return () => {
       isMounted = false;
       window.removeEventListener("ers-refresh", handleRefreshWithHighlight);
-window.removeEventListener("document-project-change", handleProjectChange);
+      window.removeEventListener("document-project-change", handleProjectChange);
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
 
+  /* abrir modal de widgets mediante evento global */
   useEffect(() => {
     const handleOpenWidgets = () => setIsWidgetsOpen(true);
     window.addEventListener("open-widgets-modal", handleOpenWidgets);
     return () => window.removeEventListener("open-widgets-modal", handleOpenWidgets);
   }, []);
 
+  /* Enviar ERS por correo: llama API y muestra popup con resultado */
   const handleSendEmail = async () => {
     const docId = getActiveProjectId();
     const token = getToken();
@@ -334,8 +352,9 @@ window.removeEventListener("document-project-change", handleProjectChange);
     ? "flex-1 h-full min-w-[520px] transition-all duration-300"
     : "w-full max-w-xs h-full transition-all duration-300";
 
+  /* handleDownload: descarga Word (ERS/Análisis) o PDF (Arquitectura) */
   const handleDownload = async () => {
-    // ── Arquitectura: descarga PDF via la función registrada por ArquitecturaDiagram ──
+    // Arquitectura: delega a la función registrada por el diagrama
     if (tab === "Arquitectura") {
       if (arqDownloadRef.current) {
         await arqDownloadRef.current();
@@ -350,7 +369,7 @@ window.removeEventListener("document-project-change", handleProjectChange);
       return;
     }
 
-    // ── ERS / Análisis: descarga Word ──
+    // ERS / Análisis: descarga Word via API
     const docId = getActiveProjectId();
     if (!docId) {
       setEmailPopup({
@@ -390,6 +409,7 @@ window.removeEventListener("document-project-change", handleProjectChange);
     }
   };
 
+  /* JSX: renderizado compacto con vista colapsada / expandida */
   return (
     <>
       {showPopup && (
@@ -572,26 +592,27 @@ window.removeEventListener("document-project-change", handleProjectChange);
               <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-white shadow">
                 {tab === "ERS" || tab === "Análisis" ? (
                   <div
-  ref={scrollContainerRef}
-  onScroll={(e) => { scrollPositionRef.current = (e.target as HTMLDivElement).scrollTop; }}
-  className="h-full w-full overflow-y-auto overscroll-contain bg-[#e9e9e9]"
->
+                    ref={scrollContainerRef}
+                    onScroll={(e) => { scrollPositionRef.current = (e.target as HTMLDivElement).scrollTop; }}
+                    className="h-full w-full overflow-y-auto overscroll-contain bg-[#e9e9e9]"
+                  >
                     {loadingERS ? (
                       <div className="flex h-full items-center justify-center text-sm text-gray-500">
                         Cargando documento...
                       </div>
                     ) : (
                       <WidgetRenderer
-  key={activeDocId}
-  widgets={widgets}
-  changedFields={changedFields}
-  nombrePlantilla={nombrePlantilla}
-  onPaginationDone={() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollPositionRef.current;
-    }
-  }}
-/>
+                        key={activeDocId}
+                        widgets={widgets}
+                        changedFields={changedFields}
+                        nombrePlantilla={nombrePlantilla}
+                        onPaginationDone={() => {
+                          // restaurar scroll tras paginación si es necesario
+                          if (scrollContainerRef.current) {
+                            scrollContainerRef.current.scrollTop = scrollPositionRef.current;
+                          }
+                        }}
+                      />
                     )}
                   </div>
                 ) : (

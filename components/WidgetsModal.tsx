@@ -16,6 +16,7 @@ import { API_URL } from "@/services/api";
 import HelpTooltip from "./Helptooltip";
 import { renderWChart } from "./widgets/biblioteca_chart";
 
+
 type WidgetsModalProps = {
   isOpen: boolean;
   onClose: () => void;

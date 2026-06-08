@@ -7,6 +7,14 @@ import FormModal from "@/components/FormModal";
 import RecentProjectList from "@/components/RecentProjects";
 import { useRouter } from "next/navigation";
 
+/*
+  Muestra:
+  ProjectList a la izquierda
+  Pantalla de bienvenida al centro
+  Botón Crear nuevo
+  FormModal cuando se pulsa el botón
+*/
+
 
 interface Proyecto {
     folio: number;

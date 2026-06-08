@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
+
 /* Props y tipos: forman el contrato del modal y los datos del formulario */
 type Props = {
   isOpen: boolean;

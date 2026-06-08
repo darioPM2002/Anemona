@@ -1,5 +1,6 @@
 "use client";
 
+
 /*
   Documentacion.tsx
   - Muestra / gestiona la vista de salida (ERS, Análisis, Arquitectura)

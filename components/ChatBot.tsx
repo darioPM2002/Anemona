@@ -7,6 +7,7 @@ import { API_URL } from "@/services/api";
 import HelpTooltip from "./Helptooltip";
 import ProjectSettingsModal from "./Projectsettingsmodal";
 
+
 /* Tipos simples usados en el componente */
 type MsgRole = "user" | "bot" | "tool_call" | "tool_result";
 type Msg = { id: number; role: MsgRole; text: string; tool?: string; isNew?: boolean; timestamp?: number; };

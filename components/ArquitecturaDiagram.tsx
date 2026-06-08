@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent } from "rea
 import { RefreshCw, Loader2, ZoomIn, ZoomOut, Maximize2, Minimize2 , Info} from "lucide-react";
 import { API_URL } from "@/services/api";
 
+
 interface Nodo { id: string; label: string; tipo?: string; x?: number; y?: number; }
 interface Arista { source: string; target: string; label?: string; }
 interface ArquitecturaData { nodes: Nodo[]; edges: Arista[]; }

@@ -12,6 +12,7 @@ import {
 import { API_URL } from "@/services/api";
 import { renderWChart } from "./widgets/biblioteca_chart";
 
+
 /* Props del componente */
 type Props = {
   widgets: Widget[];

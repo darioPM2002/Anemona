@@ -6,6 +6,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { API_URL } from "@/services/api";
 
+
+/*
+  Muestra los primeros seis proyectos y controla la selección del proyecto activo
+*/
+
 type ProjectItem = {
   folio: number;
   nombreproyecto: string;

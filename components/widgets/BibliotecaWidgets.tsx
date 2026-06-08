@@ -140,6 +140,8 @@ function BodyText({
 }
 
 /* ================== W000 ================== */
+/* ========= Tabla de datos básicos ========= */
+
 export const renderW000 = (
   widget: Widget,
   onChange: (posicion: number, key: string, value: string) => void,
@@ -195,6 +197,7 @@ export const renderW000 = (
 };
 
 /* ================== W001 ================== */
+/* ======== Descripción general ========= */
 
 export const renderW001 = (
   widget: Widget,
@@ -254,6 +257,7 @@ export const renderW001 = (
 };
 
 /* ================== W002 ================== */
+/* ======== Objetivos y secciones ========= */
 
 export const renderW002 = (
   widget: Widget,
@@ -311,6 +315,7 @@ export const renderW002 = (
 };
 
 /* ================== W003 ================== */
+/* ======== Tabla dinámica con columnas ========= */
 
 export const renderW003 = (
   widget: Widget,
@@ -451,6 +456,7 @@ export const renderW003 = (
 
 
 /* ================== W005 ================== */
+/* ======== Tabla flexible ======== */
 
 export const renderW005 = (
   widget: Widget,
@@ -645,6 +651,7 @@ export const renderW005 = (
 };
 
 /* ================== W006 ================== */
+/* ======== Editor de bloques de texto ======== */
 
 export type Block = {
   id: string;

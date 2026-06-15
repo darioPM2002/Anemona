@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Anémona Frontend
 
-## Getting Started
+Frontend de **Anémona**, una plataforma web desarrollada para facilitar el llenado de documentación empresarial mediante Inteligencia Artificial y plantillas reutilizables.
 
-First, run the development server:
+## Tecnologías
+
+* Next.js
+* TypeScript
+* Tailwind CSS
+
+## Instalación
+
+Instala las dependencias del proyecto:
+
+```bash
+npm install
+```
+
+## Ejecutar en desarrollo
+
+Inicia el servidor de desarrollo:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre http://localhost:3000 en tu navegador para visualizar la aplicación.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Construcción para producción
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+```
 
-## Learn More
+## Acerca de Anémona
 
-To learn more about Next.js, take a look at the following resources:
+Anémona es una plataforma diseñada para ayudar a organizaciones y empresas a agilizar la creación y el llenado de documentación mediante Inteligencia Artificial. A través de plantillas reutilizables y asistentes inteligentes, busca reducir el tiempo invertido en tareas administrativas y mejorar la eficiencia de los procesos documentales.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+El proyecto fue desarrollado en colaboración con Banorte y el Tecnológico de Monterrey.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Reconocimientos
 
-## Deploy on Vercel
+* 🏆 Primer lugar en Expo Ingeniería del Tecnológico de Monterrey, Campus Monterrey.
+* 💡 Reconocimiento por parte de Banorte como la solución más creativa del programa.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Equipo
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+* Darío Cuauhtémoc Peña Mariano
+* Liz
+* Santiago
+* Mariel
+* Ari

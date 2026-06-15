@@ -1,52 +1,93 @@
-# Anémona Frontend
+# Anemona - Frontend
 
-Frontend de **Anémona**, una plataforma web desarrollada para facilitar el llenado de documentación empresarial mediante Inteligencia Artificial y plantillas reutilizables.
+Interfaz web del sistema Anemona, desarrollada con Next.js.
+Permite a los usuarios iniciar sesión, gestionar proyectos, interactuar con el chatbot, visualizar documentación generada y editar widgets dinámicos.
 
-## Tecnologías
+## Tecnologías utilizadas
 
 * Next.js
+* React
 * TypeScript
 * Tailwind CSS
+* GitHub Actions
+* Google Cloud Platform
 
 ## Instalación
-
-Instala las dependencias del proyecto:
 
 ```bash
 npm install
 ```
 
-## Ejecutar en desarrollo
+## Ejecución local
 
-Inicia el servidor de desarrollo:
+Para correr el proyecto en local:
 
 ```bash
 npm run dev
 ```
 
-Abre http://localhost:3000 en tu navegador para visualizar la aplicación.
-
-## Construcción para producción
+Después abrir en el navegador:
 
 ```bash
-npm run build
+http://localhost:3000
 ```
 
-## Acerca de Anémona
+## Scripts principales
 
-Anémona es una plataforma diseñada para ayudar a organizaciones y empresas a agilizar la creación y el llenado de documentación mediante Inteligencia Artificial. A través de plantillas reutilizables y asistentes inteligentes, busca reducir el tiempo invertido en tareas administrativas y mejorar la eficiencia de los procesos documentales.
+```bash
+npm run dev      # Ejecuta el servidor de desarrollo
+npm run build    # Construye la aplicación para producción
+npm run start    # Ejecuta la versión de producción
+npm run lint     # Ejecuta validaciones de lint
+```
 
-El proyecto fue desarrollado en colaboración con Banorte y el Tecnológico de Monterrey.
+## Estructura del proyecto
 
-## Reconocimientos
+```bash
+app/              # Rutas principales de Next.js, layout y página inicial
+components/       # Vistas y elementos de interfaz del sistema
+services/         # Configuración de conexión con el back-end
+types/            # Tipos e interfaces de TypeScript
+public/           # Imágenes y recursos estáticos
+data/             # Archivos de datos usados por la aplicación
+```
 
-* 🏆 Primer lugar en Expo Ingeniería del Tecnológico de Monterrey, Campus Monterrey.
-* 💡 Reconocimiento por parte de Banorte como la solución más creativa del programa.
+## Conexión con back-end
 
-## Equipo
+El front-end se conecta con el back-end mediante endpoints REST.
+El back-end se encarga de manejar proyectos, sesiones, documentación, widgets y comunicación con el agente de inteligencia artificial.
 
-* Darío Cuauhtémoc Peña Mariano
-* Liz
-* Santiago
-* Mariel
-* Ari
+La URL del back-end se configura en:
+
+```bash
+services/api.ts
+```
+
+## Deployment
+
+El front-end se encuentra desplegado en Google Cloud Platform.
+El flujo de CI/CD se gestiona con GitHub Actions para validar cambios antes del despliegue.
+
+Liga del sistema desplegado:
+
+```bash
+https://anemona-backend-fireabse--anemona-2130e.us-east4.hosted.app/ 
+```
+la liga de la aplicación desplegada ya no se encuentra disponible, ya que el hospedaje se mantuvo únicamente durante el periodo del proyecto y actualmente no se cuenta con créditos activos de GCP para mantener el servicio en ejecución.
+
+
+## Repositorios relacionados
+
+Front-end: https://github.com/darioPM2002/Anemona
+Back-end: https://github.com/A01029211/AnemonaBackend1
+Agente: https://github.com/darioPM2002/agente_anemona
+
+## Autores
+
+Darío Cuauhtémoc Peña Mariano A01785420
+Mariel González Grunspan A01198887
+Santiago Córdova Molina A01029211
+Angela Lizeth Aguirre Zúñiga A01286354
+Ariana Isabela Espinoza López A01645270
+
+Proyecto desarrollado por el equipo TechNova para la materia Planeación de Sistemas de Software.
